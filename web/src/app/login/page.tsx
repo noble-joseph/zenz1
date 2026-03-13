@@ -34,30 +34,64 @@ export default function LoginPage() {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session) router.replace(next);
+    } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (session) {
+        // Check if user has an active, fully-formed profile
+        const { data: prof } = await supabase
+          .from("profiles")
+          .select("display_name")
+          .eq("id", session.user.id)
+          .maybeSingle();
+
+        if (prof?.display_name) {
+          router.replace(next);
+        } else {
+          router.replace("/onboarding");
+        }
+      }
     });
     return () => subscription.unsubscribe();
   }, [router, searchParams, supabase]);
 
   return (
     <main className="mx-auto max-w-md px-6 py-16">
-      <h1 className="text-3xl font-semibold tracking-tight">Sign in</h1>
+      <h1 className="text-3xl font-semibold tracking-tight">Join Talent OS</h1>
       <p className="mt-3 text-sm text-zinc-600">
-        Use a magic link. Public portfolios remain accessible without login.
+        Create your creator portfolio or sign in to manage your assets.
       </p>
-      <div className="mt-8 rounded-lg border p-4">
+      <div className="mt-8 rounded-lg border p-4 shadow-sm bg-card">
         {supabase ? (
           <Auth
             supabaseClient={supabase}
-            view="magic_link"
-            appearance={{ theme: ThemeSupa }}
-            providers={[]}
+            appearance={{ 
+              theme: ThemeSupa,
+              variables: {
+                default: {
+                  colors: {
+                    brand: 'oklch(0.205 0 0)',
+                    brandAccent: 'oklch(0.145 0 0)',
+                  }
+                }
+              }
+            }}
+            providers={["google"]}
+            redirectTo={`${typeof window !== 'undefined' ? window.location.origin : ''}/auth/callback?next=/dashboard`}
+            localization={{
+              variables: {
+                sign_in: {
+                  email_label: 'Email address',
+                  password_label: 'Password',
+                },
+                sign_up: {
+                  email_label: 'Email address',
+                  password_label: 'Create a password',
+                }
+              }
+            }}
           />
         ) : (
           <div className="text-sm text-zinc-600">
-            Missing Supabase env vars. Copy <code>.env.example</code> to <code>.env.local</code> and
-            set <code>NEXT_PUBLIC_SUPABASE_URL</code> and <code>NEXT_PUBLIC_SUPABASE_ANON_KEY</code>.
+            Missing Supabase configuration.
           </div>
         )}
       </div>
