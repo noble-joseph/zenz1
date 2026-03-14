@@ -24,7 +24,6 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Separator } from "@/components/ui/separator";
 
 interface ProjectDetail {
   id: string;
@@ -59,7 +58,12 @@ export default function ProjectDetailPage() {
   const [project, setProject] = useState<ProjectDetail | null>(null);
   const [commits, setCommits] = useState<CommitRow[]>([]);
   const [collabs, setCollabs] = useState<CollabRow[]>([]);
+  const [assets, setAssets] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // New state for hover/selection
+  const [hoveredAssetId, setHoveredAssetId] = useState<string | null>(null);
+  const [selectedAssetId, setSelectedAssetId] = useState<string | null>(null);
 
   useEffect(() => {
     async function load() {
@@ -89,6 +93,21 @@ export default function ProjectDetailPage() {
           .from("collaborations")
           .select("id, creator_id, role_title, status")
           .eq("project_id", projectId);
+
+        // Fetch Assets via Commits
+        if (commitData && commitData.length > 0) {
+          const assetIds = commitData.map((c) => c.asset_id);
+          const { data: assetData } = await supabase
+            .from("assets")
+            .select("hash_id, storage_url, media_type, metadata")
+            .in("hash_id", assetIds);
+          
+          if (assetData) {
+            setAssets(assetData);
+            // Default selected asset is the latest commit's asset
+            setSelectedAssetId(commitData[0].asset_id);
+          }
+        }
 
         if (collabData && collabData.length > 0) {
           // Fetch profile names
@@ -161,6 +180,9 @@ export default function ProjectDetailPage() {
     );
   }
 
+  const activeAssetId = hoveredAssetId || selectedAssetId;
+  const displayAsset = assets.find((a) => a.hash_id === activeAssetId);
+
   return (
     <div className="p-6 lg:p-8">
       {/* Header */}
@@ -204,124 +226,206 @@ export default function ProjectDetailPage() {
         </Button>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-3">
-        {/* Commit Timeline */}
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <GitCommitHorizontal className="h-4 w-4" />
-              Commit Timeline
-            </CardTitle>
-            <CardDescription>
-              {commits.length} commit{commits.length !== 1 ? "s" : ""} in this
-              project.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {commits.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                No commits yet.{" "}
-                <Link
-                  href={`/dashboard/ingest?project=${project.id}`}
-                  className="text-primary underline"
-                >
-                  Ingest your first asset
-                </Link>
-                .
-              </p>
-            ) : (
-              <div className="relative">
-                {/* Vertical timeline line */}
-                <div className="absolute left-[11px] top-0 h-full w-0.5 bg-border" />
+      <div className="grid gap-6 lg:grid-cols-3 items-start">
+        {/* Work Viewer (Left Column) */}
+        <div className="lg:col-span-2 space-y-6 lg:sticky lg:top-8">
+          <Card className="overflow-hidden">
+            <div className="bg-zinc-100 flex items-center justify-center min-h-[400px] border-b">
+               {displayAsset ? (
+                 displayAsset.media_type === 'image' || displayAsset.media_type === 'video' ? (
+                   // eslint-disable-next-line @next/next/no-img-element
+                   <img src={`/api/signed-url?hash=${displayAsset.hash_id}`} alt={displayAsset.metadata?.originalName} className="max-h-[600px] w-full object-contain" />
+                 ) : displayAsset.media_type === 'audio' ? (
+                   <div className="p-10 text-amber-600 flex flex-col items-center gap-2">
+                     <span className="font-semibold text-lg">Audio File</span>
+                     <span className="text-sm">{displayAsset.metadata?.originalName}</span>
+                     <audio controls src={`/api/signed-url?hash=${displayAsset.hash_id}`} className="mt-4" />
+                   </div>
+                 ) : (
+                   <div className="p-10 text-zinc-600 flex flex-col items-center gap-2">
+                     <span className="font-semibold text-lg">File</span>
+                     <span className="text-sm">{displayAsset.metadata?.originalName}</span>
+                   </div>
+                 )
+               ) : (
+                 <div className="text-center p-10">
+                   {assets.length > 0 ? (
+                     <p className="text-muted-foreground text-sm flex flex-col gap-2">
+                       <span>Select or hover over a commit to preview assets.</span>
+                     </p>
+                   ) : (
+                     <p className="text-muted-foreground text-sm">No assets uploaded.</p>
+                   )}
+                 </div>
+               )}
+            </div>
+            {displayAsset && (
+              <div className="p-4 bg-white flex items-center justify-between">
+                <div>
+                  <h3 className="font-medium text-sm">{displayAsset.metadata?.originalName || "Unnamed Asset"}</h3>
+                  <p className="text-xs text-zinc-500 mt-1">SHA-256: {displayAsset.hash_id.slice(0, 16)}...</p>
+                </div>
+                <Badge variant="outline">{displayAsset.media_type}</Badge>
+              </div>
+            )}
+          </Card>
+          
+          {/* Also show all assets below if they want to browse files */}
+          {assets.length > 0 && (
+             <div>
+               <h3 className="text-sm font-semibold mb-3">All Assets in this Project</h3>
+               <div className="flex gap-2 overflow-x-auto pb-2">
+                 {assets.map((a) => (
+                    <button 
+                      key={a.hash_id} 
+                      onClick={() => setSelectedAssetId(a.hash_id)}
+                      className={`relative shrink-0 flex items-center justify-center h-16 w-16 rounded-md overflow-hidden border-2 transition-colors ${selectedAssetId === a.hash_id ? 'border-primary' : 'border-transparent hover:border-zinc-300 bg-zinc-100'}`}
+                    >
+                      {a.media_type === 'image' || a.media_type === 'video' ? (
+                         // eslint-disable-next-line @next/next/no-img-element
+                         <img src={`/api/signed-url?hash=${a.hash_id}`} alt={a.metadata?.originalName} className="h-full w-full object-cover" />
+                      ) : (
+                         <span className="text-xs uppercase font-medium">{a.media_type}</span>
+                      )}
+                    </button>
+                 ))}
+               </div>
+             </div>
+          )}
+        </div>
 
-                <div className="space-y-4">
-                  {commits.map((commit, idx) => (
-                    <div key={commit.id} className="relative flex gap-4 pl-8">
-                      {/* Dot */}
-                      <div
-                        className={`absolute left-0 top-1.5 flex h-6 w-6 items-center justify-center rounded-full border-2 ${
-                          idx === 0
-                            ? "border-primary bg-primary text-primary-foreground"
-                            : "border-border bg-background"
-                        }`}
+        {/* Right Column: Commits & Collabs */}
+        <div className="space-y-6">
+          {/* Commit Timeline */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <GitCommitHorizontal className="h-4 w-4" />
+                Commit Timeline
+              </CardTitle>
+              <CardDescription>
+                {commits.length} commit{commits.length !== 1 ? "s" : ""} in this
+                project.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {commits.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  No commits yet.{" "}
+                  <Link
+                    href={`/dashboard/ingest?project=${project.id}`}
+                    className="text-primary underline"
+                  >
+                    Ingest your first asset
+                  </Link>
+                  .
+                </p>
+              ) : (
+                <div className="relative">
+                  {/* Vertical timeline line */}
+                  <div className="absolute left-[11px] top-0 h-full w-0.5 bg-border" />
+
+                  <div className="space-y-4">
+                    {commits.map((commit, idx) => {
+                      const isActive = activeAssetId === commit.asset_id;
+                      const isSelected = selectedAssetId === commit.asset_id;
+                      
+                      return (
+                      <div 
+                        key={commit.id} 
+                        className="relative flex gap-4 pl-8 group cursor-pointer"
+                        onMouseEnter={() => setHoveredAssetId(commit.asset_id)}
+                        onMouseLeave={() => setHoveredAssetId(null)}
+                        onClick={() => setSelectedAssetId(commit.asset_id)}
                       >
-                        <GitCommitHorizontal className="h-3 w-3" />
-                      </div>
+                        {/* Dot */}
+                        <div
+                          className={`absolute left-0 top-1.5 flex h-6 w-6 items-center justify-center rounded-full border-2 transition-colors ${
+                            idx === 0
+                              ? "border-primary bg-primary text-primary-foreground"
+                              : isActive 
+                                ? "border-primary bg-zinc-100 text-primary"
+                                : "border-border bg-background group-hover:border-zinc-400"
+                          }`}
+                        >
+                          <GitCommitHorizontal className="h-3 w-3" />
+                        </div>
 
-                      <div className="min-w-0 flex-1 rounded-lg border p-3">
-                        <div className="flex items-start justify-between gap-2">
-                          <p className="text-sm font-medium">
-                            {commit.change_message || "No message"}
-                          </p>
-                          <span className="shrink-0 text-xs text-muted-foreground">
-                            {timeAgo(commit.created_at)}
-                          </span>
-                        </div>
-                        <div className="mt-2 flex flex-wrap items-center gap-2">
-                          <Badge variant="outline" className="font-mono text-xs">
-                            {commit.asset_id.slice(0, 12)}…
-                          </Badge>
-                          <code className="text-xs text-muted-foreground">
-                            {commit.id.slice(0, 8)}
-                          </code>
+                        <div className={`min-w-0 flex-1 rounded-lg border p-3 transition-colors ${isSelected ? 'border-primary bg-zinc-50' : isActive ? 'border-zinc-400 bg-zinc-50' : 'group-hover:border-zinc-300'}`}>
+                          <div className="flex items-start justify-between gap-2">
+                            <p className="text-sm font-medium">
+                              {commit.change_message || "No message"}
+                            </p>
+                            <span className="shrink-0 text-xs text-muted-foreground">
+                              {timeAgo(commit.created_at)}
+                            </span>
+                          </div>
+                          <div className="mt-2 flex flex-wrap items-center gap-2">
+                            <Badge variant="outline" className="font-mono text-xs">
+                              {commit.asset_id.slice(0, 12)}...
+                            </Badge>
+                            <code className="text-xs text-muted-foreground">
+                              {commit.id.slice(0, 8)}
+                            </code>
+                          </div>
                         </div>
                       </div>
+                    )})}
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Collaborators */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Users className="h-4 w-4" />
+                Collaborators
+              </CardTitle>
+              <CardDescription>
+                {collabs.length} credit{collabs.length !== 1 ? "s" : ""} linked.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {collabs.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  No collaborators tagged yet.
+                </p>
+              ) : (
+                <div className="space-y-3">
+                  {collabs.map((c) => (
+                    <div
+                      key={c.id}
+                      className="flex items-center justify-between gap-2 rounded-lg border p-3"
+                    >
+                      <div>
+                        <p className="text-sm font-medium">
+                          {c.profile?.display_name ?? "Unknown"}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {c.role_title}
+                        </p>
+                      </div>
+                      <Badge
+                        variant={
+                          c.status === "verified"
+                            ? "default"
+                            : c.status === "rejected"
+                              ? "destructive"
+                              : "secondary"
+                        }
+                      >
+                        {c.status}
+                      </Badge>
                     </div>
                   ))}
                 </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Collaborators */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Users className="h-4 w-4" />
-              Collaborators
-            </CardTitle>
-            <CardDescription>
-              {collabs.length} credit{collabs.length !== 1 ? "s" : ""} linked.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {collabs.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                No collaborators tagged yet.
-              </p>
-            ) : (
-              <div className="space-y-3">
-                {collabs.map((c) => (
-                  <div
-                    key={c.id}
-                    className="flex items-center justify-between gap-2 rounded-lg border p-3"
-                  >
-                    <div>
-                      <p className="text-sm font-medium">
-                        {c.profile?.display_name ?? "Unknown"}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {c.role_title}
-                      </p>
-                    </div>
-                    <Badge
-                      variant={
-                        c.status === "verified"
-                          ? "default"
-                          : c.status === "rejected"
-                            ? "destructive"
-                            : "secondary"
-                      }
-                    >
-                      {c.status}
-                    </Badge>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+              )}
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </div>
   );

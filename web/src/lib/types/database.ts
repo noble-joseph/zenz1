@@ -8,7 +8,34 @@ export type UserRole = "creator" | "hirer";
 export type MediaType = "image" | "video" | "audio" | "document" | "other";
 export type CollabStatus = "pending" | "verified" | "rejected";
 
-// --- Row types ---
+export type AvailabilityStatus = "available" | "busy" | "not_available";
+
+export interface SocialLinks {
+  instagram?: string;
+  youtube?: string;
+  twitter?: string;
+  linkedin?: string;
+  spotify?: string;
+  soundcloud?: string;
+  imdb?: string;
+  behance?: string;
+  vimeo?: string;
+  [key: string]: string | undefined;
+}
+
+export interface ExperienceEntry {
+  title: string;
+  company: string;
+  start_date: string;
+  end_date: string | null;
+  description: string;
+  current: boolean;
+}
+
+export interface PortfolioOrder {
+  sections: string[];
+  pinnedProjects: string[];
+}
 
 export interface Profile {
   id: string;                    // UUID, references auth.users
@@ -21,6 +48,19 @@ export interface Profile {
   specializations: string[];
   achievements: string[];
   influence_score: number;
+  
+  // New Portfolio Fields
+  cover_url: string | null;
+  phone: string | null;
+  location: string | null;
+  website_url: string | null;
+  social_links: SocialLinks;
+  experience: ExperienceEntry[];
+  equipment: string[];
+  languages: string[];
+  availability_status: AvailabilityStatus;
+  portfolio_order: PortfolioOrder;
+
   created_at: string;            // ISO 8601 timestamptz
   updated_at: string;
 }
@@ -53,6 +93,14 @@ export interface Project {
   description: string | null;
   is_public: boolean;
   tags: string[];
+  
+  // New Project Fields
+  cover_url: string | null;
+  client: string | null;
+  role: string | null;
+  thumbnail_asset_id: string | null;
+  equipment: string[];
+
   created_at: string;
   updated_at: string;
 }

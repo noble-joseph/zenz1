@@ -16,13 +16,19 @@ export async function VibeSearchResults({ query }: { query: string }) {
   if (!res.ok) {
     return (
       <div className="py-12 text-center text-red-500">
-        Failed to analyze search query. Ensure OpenAI keys are configured.
+        Failed to analyze search query. Ensure GOOGLE_GENERATIVE_AI_API_KEY is configured.
       </div>
     );
   }
 
   const { vector } = await res.json();
-  if (!vector) return null;
+  if (!vector || !Array.isArray(vector) || vector.length === 0) {
+    return (
+      <div className="py-12 text-center text-red-500">
+        Could not generate search embedding. Check your Google AI API key.
+      </div>
+    );
+  }
 
   const supabase = await createSupabaseServerClient();
   

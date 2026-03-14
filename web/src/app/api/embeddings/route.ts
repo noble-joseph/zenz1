@@ -14,6 +14,12 @@ export async function GET(req: NextRequest) {
 
   try {
     const vector = await generateEmbedding(decodeURIComponent(query));
+    if (!vector || vector.length === 0) {
+      return NextResponse.json(
+        { error: "Embedding generation returned empty. Check GOOGLE_GENERATIVE_AI_API_KEY." },
+        { status: 500 }
+      );
+    }
     return NextResponse.json({ ok: true, vector });
   } catch (error) {
     console.error("Embedding API Error:", error);

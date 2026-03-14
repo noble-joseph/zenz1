@@ -2,7 +2,7 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 
 /**
  * Generates an embedding for a piece of text.
- * We use Google's 'text-embedding-004' via Gemini, which is free in AI Studio.
+ * We use Google's 'embedding-001' via Gemini, which is free in AI Studio.
  */
 export async function generateEmbedding(text: string): Promise<number[]> {
   const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
@@ -14,7 +14,7 @@ export async function generateEmbedding(text: string): Promise<number[]> {
 
   try {
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: "models/text-embedding-004" });
+    const model = genAI.getGenerativeModel({ model: "gemini-embedding-001" });
     const result = await model.embedContent(text);
     const embedding = result.embedding.values;
     
@@ -24,3 +24,4 @@ export async function generateEmbedding(text: string): Promise<number[]> {
     throw new Error("Failed to generate embedding.");
   }
 }
+

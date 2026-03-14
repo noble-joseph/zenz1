@@ -1,13 +1,13 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, Suspense } from "react";
 import { Auth } from "@supabase/auth-ui-react";
 import { ThemeSupa } from "@supabase/auth-ui-shared";
 import { useRouter, useSearchParams } from "next/navigation";
 
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 
-export default function LoginPage() {
+function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const supabase = createSupabaseBrowserClient();
@@ -96,6 +96,19 @@ export default function LoginPage() {
         )}
       </div>
     </main>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <main className="mx-auto max-w-md px-6 py-16 flex flex-col items-center justify-center min-h-[400px]">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600" />
+        <p className="mt-4 text-sm text-muted-foreground font-medium animate-pulse">Initializing Talent OS...</p>
+      </main>
+    }>
+      <LoginContent />
+    </Suspense>
   );
 }
 

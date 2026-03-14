@@ -122,7 +122,7 @@ export default function NewProjectPage() {
         
         toast.success("Metadata generated!", { id: toastId });
       } else {
-        toast.error(res.error || "Failed to generate metadata.", { id: toastId });
+        toast.error("Failed to generate metadata.", { id: toastId });
       }
     } catch (err) {
       toast.error("Something went wrong.", { id: toastId });
@@ -194,6 +194,7 @@ export default function NewProjectPage() {
         storage_url: storageUrl,
         media_type: mediaType,
         metadata: { originalName: file.name, size: file.size, type: file.type },
+        created_by: userId,
       };
       
       if (embeddingRes.ok && embeddingRes.vector && embeddingRes.vector.length > 0) {
