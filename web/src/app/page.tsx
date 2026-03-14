@@ -14,13 +14,16 @@ export default async function HomePage() {
     .from("profiles")
     .select("id, display_name, public_slug, bio, influence_score, avatar_url")
     .eq("role", "creator")
+    .not("display_name", "is", null)
+    .not("avatar_url", "is", null)
     .order("influence_score", { ascending: false })
     .limit(6);
 
   // Fetch featured assets (Photography and Music)
   const { data: featuredAssets } = await supabase
     .from("assets")
-    .select("*, profiles(display_name, avatar_url)")
+    .select("*, profiles!inner(display_name, avatar_url)")
+    .not("profiles.display_name", "is", null)
     .order("created_at", { ascending: false })
     .limit(12);
 

@@ -45,6 +45,8 @@ export async function VibeSearchResults({ query }: { query: string }) {
     .from("profiles")
     .select("id, display_name, public_slug, bio, avatar_url, influence_score")
     .or(`display_name.ilike.%${query}%,bio.ilike.%${query}%`)
+    .not("display_name", "is", null)
+    .not("avatar_url", "is", null)
     .limit(4);
 
   if (error) {

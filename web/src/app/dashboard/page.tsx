@@ -3,278 +3,183 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
-  FolderGit2,
-  Image as ImageIcon,
-  GitCommitHorizontal,
-  Users,
-  ArrowRight,
-  Clock,
+  Sparkles,
+  Heart,
+  Share2,
+  BadgeCheck,
+  MoreHorizontal,
+  Plus,
 } from "lucide-react";
 
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
 
-interface DashboardStats {
-  projectCount: number;
-  assetCount: number;
-  commitCount: number;
-  collabCount: number;
-}
-
-interface RecentCommit {
+interface FeedItem {
   id: string;
-  change_message: string;
+  type: "project" | "asset";
+  title: string;
+  description?: string;
+  image_url: string;
   created_at: string;
-  project_title: string;
+  creator: {
+    display_name: string;
+    avatar_url: string;
+    public_slug: string;
+  };
+  stats: {
+    likes: number;
+    credits: number;
+  };
 }
 
-export default function DashboardPage() {
-  const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [recentCommits, setRecentCommits] = useState<RecentCommit[]>([]);
+export default function FeedPage() {
+  const [items, setItems] = useState<FeedItem[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    async function load() {
+    async function loadFeed() {
       const supabase = createSupabaseBrowserClient();
       if (!supabase) return;
 
       try {
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
-        if (!user) return;
-
-        // Fetch counts in parallel
-        const [projectsRes, assetsRes, commitsRes, collabsRes] =
-          await Promise.all([
-            supabase
-              .from("projects")
-              .select("id", { count: "exact", head: true })
-              .eq("owner_id", user.id),
-            supabase
-              .from("assets")
-              .select("hash_id", { count: "exact", head: true })
-              .eq("created_by", user.id),
-            supabase
-              .from("commits")
-              .select("id", { count: "exact", head: true })
-              .eq("created_by", user.id),
-            supabase
-              .from("collaborations")
-              .select("id", { count: "exact", head: true })
-              .eq("creator_id", user.id)
-              .eq("status", "verified"),
-          ]);
-
-        setStats({
-          projectCount: projectsRes.count ?? 0,
-          assetCount: assetsRes.count ?? 0,
-          commitCount: commitsRes.count ?? 0,
-          collabCount: collabsRes.count ?? 0,
-        });
-
-        // Fetch recent commits with project title
-        const { data: commits } = await supabase
-          .from("commits")
-          .select("id, change_message, created_at, project_id")
-          .eq("created_by", user.id)
+        // Fetch featured assets and projects
+        const { data: assets } = await supabase
+          .from("assets")
+          .select("*, profiles:created_by!inner(display_name, avatar_url, public_slug)")
+          .not("profiles.display_name", "is", null)
           .order("created_at", { ascending: false })
-          .limit(5);
+          .limit(10);
 
-        if (commits && commits.length > 0) {
-          // Fetch project titles
-          const projectIds = [
-            ...new Set(commits.map((c) => c.project_id)),
-          ];
-          const { data: projects } = await supabase
-            .from("projects")
-            .select("id, title")
-            .in("id", projectIds);
-
-          const projectMap = new Map(
-            (projects ?? []).map((p) => [p.id, p.title]),
-          );
-
-          setRecentCommits(
-            commits.map((c) => ({
-              id: c.id,
-              change_message: c.change_message,
-              created_at: c.created_at,
-              project_title: projectMap.get(c.project_id) ?? "Unknown",
-            })),
-          );
+        if (assets) {
+          const feedItems: FeedItem[] = assets.map((a: any) => ({
+            id: a.hash_id,
+            type: "asset",
+            title: a.metadata?.originalName || "Untitled Work",
+            description: a.metadata?.description || `A ${a.media_type} asset uploaded to Talent OS.`,
+            image_url: `/api/signed-url?hash=${a.hash_id}`,
+            created_at: a.created_at,
+            creator: {
+              display_name: a.profiles?.display_name || "Creator",
+              avatar_url: a.profiles?.avatar_url || "",
+              public_slug: a.profiles?.public_slug || "",
+            },
+            stats: {
+              likes: Math.floor(Math.random() * 100), // Placeholder
+              credits: Math.floor(Math.random() * 50), // Placeholder
+            },
+          }));
+          setItems(feedItems);
         }
-      } catch {
-        // Stats loading failed silently
+      } catch (err) {
+        console.error("Failed to load feed:", err);
       } finally {
         setLoading(false);
       }
     }
 
-    void load();
+    void loadFeed();
   }, []);
 
-  const statCards = [
-    {
-      label: "Projects",
-      value: stats?.projectCount ?? 0,
-      icon: FolderGit2,
-      href: "/dashboard/projects",
-      color: "text-blue-600",
-    },
-    {
-      label: "Assets",
-      value: stats?.assetCount ?? 0,
-      icon: ImageIcon,
-      href: "/dashboard/assets",
-      color: "text-emerald-600",
-    },
-    {
-      label: "Commits",
-      value: stats?.commitCount ?? 0,
-      icon: GitCommitHorizontal,
-      href: "/dashboard/projects",
-      color: "text-violet-600",
-    },
-    {
-      label: "Verified Credits",
-      value: stats?.collabCount ?? 0,
-      icon: Users,
-      href: "/dashboard/credits",
-      color: "text-amber-600",
-    },
-  ];
-
-  function timeAgo(dateStr: string): string {
-    const diff = Date.now() - new Date(dateStr).getTime();
-    const mins = Math.floor(diff / 60000);
-    if (mins < 1) return "just now";
-    if (mins < 60) return `${mins}m ago`;
-    const hours = Math.floor(mins / 60);
-    if (hours < 24) return `${hours}h ago`;
-    const days = Math.floor(hours / 24);
-    return `${days}d ago`;
-  }
-
   return (
-    <div className="p-6 lg:p-8">
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Your creative workspace at a glance.
-        </p>
-      </div>
+    <div className="max-w-2xl mx-auto py-4">
+      <header className="mb-8 flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-black tracking-tighter">Your Feed</h1>
+          <p className="text-muted-foreground">The best work from the creators you follow.</p>
+        </div>
+        <Button className="rounded-full h-12 w-12 p-0 shadow-lg shadow-primary/20">
+          <Plus className="h-6 w-6" />
+        </Button>
+      </header>
 
-      {/* Stats Grid */}
-      <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {statCards.map((stat) => (
-          <Link key={stat.label} href={stat.href}>
-            <Card className="transition-shadow hover:shadow-md">
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardDescription className="text-sm font-medium">
-                  {stat.label}
-                </CardDescription>
-                <stat.icon className={`h-4 w-4 ${stat.color}`} />
-              </CardHeader>
-              <CardContent>
-                {loading ? (
-                  <Skeleton className="h-8 w-16" />
-                ) : (
-                  <div className="text-2xl font-bold">{stat.value}</div>
-                )}
-              </CardContent>
-            </Card>
-          </Link>
-        ))}
-      </div>
-
-      {/* Recent Activity + Quick Actions */}
-      <div className="grid gap-6 lg:grid-cols-3">
-        {/* Recent Commits */}
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Clock className="h-4 w-4" />
-              Recent Commits
-            </CardTitle>
-            <CardDescription>Latest changes across your projects.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {loading ? (
-              <div className="space-y-3">
-                {[1, 2, 3].map((i) => (
-                  <Skeleton key={i} className="h-12 w-full" />
-                ))}
+      <div className="space-y-12">
+        {loading ? (
+          Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="space-y-4">
+              <div className="flex items-center gap-3">
+                <Skeleton className="h-10 w-10 rounded-full" />
+                <Skeleton className="h-4 w-32" />
               </div>
-            ) : recentCommits.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                No commits yet. Start by{" "}
-                <Link
-                  href="/dashboard/ingest"
-                  className="text-primary underline"
-                >
-                  ingesting an asset
-                </Link>
-                .
-              </p>
-            ) : (
-              <div className="space-y-3">
-                {recentCommits.map((commit) => (
-                  <div
-                    key={commit.id}
-                    className="flex items-start gap-3 rounded-lg border p-3"
-                  >
-                    <GitCommitHorizontal className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium">
-                        {commit.change_message || "No message"}
-                      </p>
-                      <div className="mt-1 flex items-center gap-2">
-                        <Badge variant="secondary" className="text-xs">
-                          {commit.project_title}
-                        </Badge>
-                        <span className="text-xs text-muted-foreground">
-                          {timeAgo(commit.created_at)}
-                        </span>
-                      </div>
-                    </div>
+              <Skeleton className="h-[400px] w-full rounded-2xl" />
+            </div>
+          ))
+        ) : items.length === 0 ? (
+          <div className="text-center py-20 bg-muted/30 rounded-3xl border border-dashed">
+            <Sparkles className="h-12 w-12 mx-auto mb-4 text-primary/40" />
+            <h2 className="text-xl font-bold">No works found</h2>
+            <p className="text-muted-foreground mt-2">Start following creators to see their work here.</p>
+          </div>
+        ) : (
+          items.map((item) => (
+            <article key={item.id} className="group animate-in fade-in slide-in-from-bottom-4 duration-500">
+              {/* Creator Header */}
+              <div className="flex items-center justify-between mb-4 px-2">
+                <div className="flex items-center gap-3">
+                  <Avatar className="h-10 w-10 ring-2 ring-primary/10 transition-all group-hover:ring-primary/40">
+                    <AvatarImage src={item.creator.avatar_url} />
+                    <AvatarFallback className="bg-primary/5 font-bold text-primary">
+                      {item.creator.display_name[0]}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div>
+                    <Link 
+                      href={`/${item.creator.public_slug}`}
+                      className="text-sm font-bold hover:text-primary transition-colors"
+                    >
+                      {item.creator.display_name}
+                    </Link>
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-widest">
+                      {new Date(item.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                    </p>
                   </div>
-                ))}
+                </div>
+                <Button variant="ghost" size="icon" className="rounded-full">
+                  <MoreHorizontal className="h-5 w-5" />
+                </Button>
               </div>
-            )}
-          </CardContent>
-        </Card>
 
-        {/* Quick Actions */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Quick Actions</CardTitle>
-            <CardDescription>Get started with common tasks.</CardDescription>
-          </CardHeader>
-          <CardContent className="grid gap-2">
-            <Button variant="outline" className="justify-between" render={<Link href="/dashboard/projects" />} nativeButton={false}>
-              Create a project
-              <ArrowRight className="h-4 w-4" />
-            </Button>
-            <Button variant="outline" className="justify-between" render={<Link href="/dashboard/ingest" />} nativeButton={false}>
-              Ingest an asset
-              <ArrowRight className="h-4 w-4" />
-            </Button>
-            <Button variant="outline" className="justify-between" render={<Link href="/dashboard/settings" />} nativeButton={false}>
-              Edit profile
-              <ArrowRight className="h-4 w-4" />
-            </Button>
-          </CardContent>
-        </Card>
+              {/* Work Media */}
+              <div className="relative aspect-square overflow-hidden rounded-3xl bg-muted shadow-xl transition-all duration-500 group-hover:shadow-2xl group-hover:shadow-primary/5">
+                <img 
+                  src={item.image_url} 
+                  alt={item.title}
+                  className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100 flex flex-col justify-end p-8">
+                   <h3 className="text-white text-2xl font-black tracking-tight mb-2">{item.title}</h3>
+                   <p className="text-white/80 text-sm line-clamp-2">{item.description}</p>
+                </div>
+              </div>
+
+              {/* Actions & Stats */}
+              <div className="mt-4 px-2 flex items-center justify-between">
+                <div className="flex items-center gap-1">
+                  <Button variant="ghost" size="icon" className="rounded-full hover:text-red-500 hover:bg-red-50 transition-colors">
+                    <Heart className="h-6 w-6" />
+                  </Button>
+                  <Button variant="ghost" size="icon" className="rounded-full hover:text-primary hover:bg-primary/5 transition-colors">
+                    <BadgeCheck className="h-6 w-6" />
+                  </Button>
+                  <Button variant="ghost" size="icon" className="rounded-full hover:text-primary hover:bg-primary/5 transition-colors">
+                    <Share2 className="h-6 w-6" />
+                  </Button>
+                </div>
+                <div className="flex items-center gap-3">
+                   <span className="text-xs font-black uppercase tracking-widest text-muted-foreground">
+                     {item.stats.likes} Likes
+                   </span>
+                   <div className="h-1 w-1 rounded-full bg-border" />
+                   <span className="text-xs font-black uppercase tracking-widest text-primary">
+                     {item.stats.credits} Verified Credits
+                   </span>
+                </div>
+              </div>
+            </article>
+          ))
+        )}
       </div>
     </div>
   );

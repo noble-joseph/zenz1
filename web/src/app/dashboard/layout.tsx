@@ -12,6 +12,9 @@ import {
   Settings,
   LogOut,
   ChevronRight,
+  Sparkles,
+  BadgeCheck,
+  Mail,
 } from "lucide-react";
 
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
@@ -28,11 +31,11 @@ import { Separator } from "@/components/ui/separator";
 import type { Profile } from "@/lib/types/database";
 
 const NAV_ITEMS = [
-  { href: "/dashboard", label: "Overview", icon: LayoutDashboard },
-  { href: "/dashboard/projects", label: "Projects", icon: FolderGit2 },
-  { href: "/dashboard/assets", label: "Assets", icon: ImageIcon },
-  { href: "/dashboard/ingest", label: "Ingest", icon: Upload },
-  { href: "/dashboard/credits", label: "Credits", icon: Users },
+  { href: "/dashboard", label: "Feed", icon: ImageIcon },
+  { href: "/dashboard/explore", label: "Explore", icon: FolderGit2 },
+  { href: "/dashboard/messages", label: "Messages", icon: Mail },
+  { href: "/dashboard/profile", label: "Portfolio", icon: Users },
+  { href: "/dashboard/credits", label: "Network", icon: BadgeCheck },
   { href: "/dashboard/settings", label: "Settings", icon: Settings },
 ] as const;
 
@@ -60,7 +63,6 @@ export default function DashboardLayout({
         );
       } else {
         setEmail(data.session.user.email ?? null);
-        // Fetch profile to verify onboarding status
         supabase
           .from("profiles")
           .select("display_name, public_slug, avatar_url, role")
@@ -71,7 +73,6 @@ export default function DashboardLayout({
               setProfile(prof);
               setReady(true);
             } else {
-              // Missing essential profile data, force onboarding
               router.replace("/onboarding");
             }
           });
@@ -89,7 +90,7 @@ export default function DashboardLayout({
 
   if (!ready) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
+      <div className="flex min-h-screen items-center justify-center bg-background">
         <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
       </div>
     );
@@ -105,26 +106,23 @@ export default function DashboardLayout({
     .slice(0, 2);
 
   return (
-    <div className="flex min-h-screen">
-      {/* Sidebar */}
-      <aside className="flex w-64 flex-col border-r bg-sidebar">
+    <div className="flex min-h-screen bg-background">
+      {/* Instagram-style Sidebar */}
+      <aside className="fixed left-0 top-0 z-40 flex h-full w-[72px] flex-col border-r bg-background py-6 lg:w-64 transition-all duration-300">
         {/* Brand */}
-        <div className="flex h-14 items-center px-4">
-          <Link
-            href="/"
-            className="flex items-center gap-2 text-base font-bold tracking-tight"
-          >
-            <span className="flex h-7 w-7 items-center justify-center rounded-md bg-primary text-xs font-bold text-primary-foreground">
-              T
+        <div className="mb-10 flex h-10 items-center px-4 lg:px-6">
+          <Link href="/" className="flex items-center gap-3">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-lg shadow-primary/20">
+              <Sparkles className="h-5 w-5" />
+            </div>
+            <span className="hidden text-xl font-black tracking-tighter lg:block">
+              TALENT OS
             </span>
-            Talent OS
           </Link>
         </div>
 
-        <Separator />
-
         {/* Navigation */}
-        <nav className="flex-1 space-y-1 px-3 py-4">
+        <nav className="flex-1 space-y-1 px-3">
           {NAV_ITEMS.map((item) => {
             const isActive =
               item.href === "/dashboard"
@@ -135,50 +133,49 @@ export default function DashboardLayout({
               <Link
                 key={item.href}
                 href={item.href}
-                className={`group flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                className={`group flex items-center gap-4 rounded-xl px-3 py-3 text-sm transition-all duration-200 ${
                   isActive
-                    ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                    : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
+                    ? "bg-primary/5 font-bold text-primary"
+                    : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
                 }`}
               >
-                <item.icon className="h-4 w-4 shrink-0" />
-                {item.label}
+                <div className={`flex h-6 w-6 shrink-0 items-center justify-center transition-transform duration-200 group-hover:scale-110 ${isActive ? "text-primary" : ""}`}>
+                  <item.icon className={isActive ? "h-6 w-6" : "h-5 w-5"} />
+                </div>
+                <span className="hidden lg:block">{item.label}</span>
                 {isActive && (
-                  <ChevronRight className="ml-auto h-4 w-4 opacity-50" />
+                  <div className="ml-auto hidden h-1.5 w-1.5 rounded-full bg-primary lg:block" />
                 )}
               </Link>
             );
           })}
         </nav>
 
-        <Separator />
-
-        {/* User menu */}
-        <div className="p-3">
+        <div className="mt-auto px-3">
           <DropdownMenu>
-            <DropdownMenuTrigger render={
-              <Button
-                variant="ghost"
-                className="flex h-auto w-full items-center justify-start gap-3 px-3 py-2 text-left"
-              />
-            }>
-              <Avatar className="h-8 w-8">
-                <AvatarFallback className="bg-primary/10 text-xs font-semibold">
+            <DropdownMenuTrigger
+              render={
+                <Button
+                  variant="ghost"
+                  className="flex h-auto w-full items-center justify-center gap-3 rounded-xl px-2 py-3 text-left lg:justify-start lg:px-3"
+                />
+              }
+            >
+              <Avatar className="h-8 w-8 ring-2 ring-transparent transition-all group-hover:ring-primary/20">
+                <AvatarFallback className="bg-primary/10 text-xs font-bold text-primary">
                   {initials}
                 </AvatarFallback>
               </Avatar>
-              <div className="flex-1 overflow-hidden">
-                <div className="truncate text-sm font-medium">
+              <div className="hidden flex-1 overflow-hidden lg:block">
+                <div className="truncate text-sm font-bold tracking-tight">
                   {displayName}
                 </div>
-                {email && (
-                  <div className="truncate text-xs text-muted-foreground">
-                    {email}
-                  </div>
-                )}
+                <div className="truncate text-[10px] uppercase tracking-widest text-muted-foreground/60">
+                  {profile?.role || "Creator"}
+                </div>
               </div>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
+            <DropdownMenuContent align="end" className="w-56" side="right">
               <DropdownMenuItem render={<Link href="/dashboard/settings" />}>
                 <Settings className="mr-2 h-4 w-4" />
                 Settings
@@ -197,7 +194,11 @@ export default function DashboardLayout({
       </aside>
 
       {/* Main content */}
-      <main className="flex-1 overflow-auto">{children}</main>
+      <main className="flex-1 overflow-auto pl-[72px] lg:pl-64 transition-all duration-300">
+        <div className="container mx-auto p-8 lg:p-12">
+          {children}
+        </div>
+      </main>
     </div>
   );
 }
