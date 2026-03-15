@@ -9,6 +9,18 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  experimental: {
+    serverComponentsExternalPackages: ["sharp", "onnxruntime-node"],
+  },
+  webpack: (config, { isServer }) => {
+    if (isServer) {
+      config.resolve.alias = {
+        ...config.resolve.alias,
+        "onnxruntime-node$": false,
+      };
+    }
+    return config;
+  },
 };
 
 export default nextConfig;
