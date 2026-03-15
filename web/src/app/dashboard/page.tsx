@@ -85,17 +85,17 @@ export default function FeedPage() {
 
   return (
     <div className="max-w-2xl mx-auto py-4">
-      <header className="mb-8 flex items-center justify-between">
+      <header className="mb-6 lg:mb-8 flex items-center justify-between px-2">
         <div>
-          <h1 className="text-3xl font-black tracking-tighter">Your Feed</h1>
-          <p className="text-muted-foreground">The best work from the creators you follow.</p>
+          <h1 className="text-2xl lg:text-3xl font-black tracking-tighter uppercase">Your Feed</h1>
+          <p className="text-xs lg:text-sm text-muted-foreground">The best work from the creators you follow.</p>
         </div>
-        <Button className="rounded-full h-12 w-12 p-0 shadow-lg shadow-primary/20">
-          <Plus className="h-6 w-6" />
+        <Button className="rounded-full h-10 w-10 lg:h-12 lg:w-12 p-0 shadow-lg shadow-primary/20">
+          <Plus className="h-5 w-5 lg:h-6 lg:w-6" />
         </Button>
       </header>
 
-      <div className="space-y-12">
+      <div className="space-y-10 lg:space-y-12">
         {loading ? (
           Array.from({ length: 3 }).map((_, i) => (
             <div key={i} className="space-y-4">
@@ -103,7 +103,7 @@ export default function FeedPage() {
                 <Skeleton className="h-10 w-10 rounded-full" />
                 <Skeleton className="h-4 w-32" />
               </div>
-              <Skeleton className="h-[400px] w-full rounded-2xl" />
+              <Skeleton className="h-[300px] lg:h-[400px] w-full rounded-2xl lg:rounded-3xl" />
             </div>
           ))
         ) : items.length === 0 ? (
@@ -116,9 +116,9 @@ export default function FeedPage() {
           items.map((item) => (
             <article key={item.id} className="group animate-in fade-in slide-in-from-bottom-4 duration-500">
               {/* Creator Header */}
-              <div className="flex items-center justify-between mb-4 px-2">
+              <div className="flex items-center justify-between mb-3 px-2">
                 <div className="flex items-center gap-3">
-                  <Avatar className="h-10 w-10 ring-2 ring-primary/10 transition-all group-hover:ring-primary/40">
+                  <Avatar className="h-8 w-8 lg:h-10 lg:w-10 ring-2 ring-primary/10 transition-all group-hover:ring-primary/40">
                     <AvatarImage src={item.creator.avatar_url} />
                     <AvatarFallback className="bg-primary/5 font-bold text-primary">
                       {item.creator.display_name[0]}
@@ -127,7 +127,7 @@ export default function FeedPage() {
                   <div>
                     <Link 
                       href={`/${item.creator.public_slug}`}
-                      className="text-sm font-bold hover:text-primary transition-colors"
+                      className="text-xs lg:text-sm font-bold hover:text-primary transition-colors"
                     >
                       {item.creator.display_name}
                     </Link>
@@ -136,43 +136,44 @@ export default function FeedPage() {
                     </p>
                   </div>
                 </div>
-                <Button variant="ghost" size="icon" className="rounded-full">
-                  <MoreHorizontal className="h-5 w-5" />
+                <Button variant="ghost" size="icon" className="rounded-full h-8 w-8">
+                  <MoreHorizontal className="h-4 w-4" />
                 </Button>
               </div>
 
               {/* Work Media */}
-              <div className="relative aspect-square overflow-hidden rounded-3xl bg-muted shadow-xl transition-all duration-500 group-hover:shadow-2xl group-hover:shadow-primary/5">
+              <div className="relative aspect-square overflow-hidden rounded-2xl lg:rounded-3xl bg-muted shadow-lg lg:shadow-xl transition-all duration-500 group-hover:shadow-2xl group-hover:shadow-primary/5">
                 <img 
                   src={item.image_url} 
                   alt={item.title}
                   className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100 flex flex-col justify-end p-8">
-                   <h3 className="text-white text-2xl font-black tracking-tight mb-2">{item.title}</h3>
-                   <p className="text-white/80 text-sm line-clamp-2">{item.description}</p>
+                {/* Overlay - visible on hover for desktop, always visible on mobile */}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-100 lg:opacity-0 transition-opacity duration-300 group-hover:opacity-100 flex flex-col justify-end p-4 lg:p-8">
+                   <h3 className="text-white text-lg lg:text-2xl font-black tracking-tight mb-1 lg:mb-2">{item.title}</h3>
+                   <p className="text-white/80 text-xs lg:text-sm line-clamp-2">{item.description}</p>
                 </div>
               </div>
 
               {/* Actions & Stats */}
-              <div className="mt-4 px-2 flex items-center justify-between">
-                <div className="flex items-center gap-1">
+              <div className="mt-4 px-2 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="flex items-center gap-1 -ml-2">
                   <Button variant="ghost" size="icon" className="rounded-full hover:text-red-500 hover:bg-red-50 transition-colors">
-                    <Heart className="h-6 w-6" />
+                    <Heart className="h-5 w-5 lg:h-6 lg:w-6" />
                   </Button>
                   <Button variant="ghost" size="icon" className="rounded-full hover:text-primary hover:bg-primary/5 transition-colors">
-                    <BadgeCheck className="h-6 w-6" />
+                    <BadgeCheck className="h-5 w-5 lg:h-6 lg:w-6" />
                   </Button>
                   <Button variant="ghost" size="icon" className="rounded-full hover:text-primary hover:bg-primary/5 transition-colors">
-                    <Share2 className="h-6 w-6" />
+                    <Share2 className="h-5 w-5 lg:h-6 lg:w-6" />
                   </Button>
                 </div>
                 <div className="flex items-center gap-3">
-                   <span className="text-xs font-black uppercase tracking-widest text-muted-foreground">
+                   <span className="text-[10px] lg:text-xs font-black uppercase tracking-widest text-muted-foreground">
                      {item.stats.likes} Likes
                    </span>
                    <div className="h-1 w-1 rounded-full bg-border" />
-                   <span className="text-xs font-black uppercase tracking-widest text-primary">
+                   <span className="text-[10px] lg:text-xs font-black uppercase tracking-widest text-primary">
                      {item.stats.credits} Verified Credits
                    </span>
                 </div>
