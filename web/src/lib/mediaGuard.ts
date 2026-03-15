@@ -17,6 +17,7 @@ import {
   isFpcalcAvailable,
   jaccardSimilarity,
 } from "@/lib/fingerprint";
+export { isFpcalcAvailable };
 import type { AssetMetadata, GuardResult, MediaAsset } from "@/lib/types/database";
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -102,16 +103,23 @@ export async function guardImage(
 
   if (vibeVector && vibeVector.length === 768) {
     const supabase = await createSupabaseServerClient();
-    const { data: matches } = await supabase.rpc("search_similar_media", {
-      query_vector: JSON.stringify(vibeVector),
+    const { data: matches, error: rpcError } = await supabase.rpc("search_similar_media", {
+      query_vector: vibeVector,
       threshold: SIMILARITY_THRESHOLD,
       result_limit: 1,
     });
+
+    if (rpcError) {
+      console.error("Media Guard: RPC Similarity search failed:", rpcError);
+    }
 
     if (matches && matches.length > 0) {
       const best = matches[0] as { id: string; distance: number };
       parentId = best.id;
       similarity = best.distance;
+      console.log(`Media Guard: Similarity match found! Parent: ${parentId}, Distance: ${similarity}`);
+    } else {
+      console.log("Media Guard: No similar assets found within threshold.");
     }
   }
 

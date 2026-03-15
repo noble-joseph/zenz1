@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { guardImage, guardAudio, findExactMatch } from "@/lib/mediaGuard";
+import { guardImage, guardAudio, findExactMatch, isFpcalcAvailable } from "@/lib/mediaGuard";
 import type { AssetMetadata } from "@/lib/types/database";
 
 /**
@@ -79,11 +79,41 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json(result);
-  } catch (error) {
-    console.error("Media Guard API Error:", error);
+  } catch (error: any) {
+    console.error("Media Guard API POST Error:", error);
     return NextResponse.json(
-      { error: "Internal server error" },
+      { 
+        error: "Internal server error", 
+        details: error?.message || "Unknown error",
+        stack: process.env.NODE_ENV === "development" ? error?.stack : undefined
+      },
       { status: 500 },
     );
+  }
+}
+
+/**
+ * GET /api/media-guard
+ * 
+ * Health check and capability diagnostic.
+ */
+export async function GET() {
+  try {
+    const supabase = await createSupabaseServerClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    const fpAvailable = await isFpcalcAvailable();
+    
+    return NextResponse.json({
+      status: "online",
+      authenticated: !!user,
+      capabilities: {
+        audio_fingerprinting: fpAvailable,
+        image_embeddings: "dinov2-vits14 (transformers.js)"
+      },
+      env: process.env.NODE_ENV
+    });
+  } catch (error: any) {
+    return NextResponse.json({ status: "error", message: error?.message }, { status: 500 });
   }
 }

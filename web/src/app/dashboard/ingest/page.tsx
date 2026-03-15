@@ -94,6 +94,8 @@ export default function IngestPage() {
   async function ingestFile(file: File) {
     setBusy(true);
     setResult(null);
+    toast.info(`Preparing to ingest ${file.name}...`, { id: "ingest-start" });
+    console.log("Ingestion started. You can check Media Guard health at: /api/media-guard");
 
     try {
       const supabase = createSupabaseBrowserClient();
@@ -134,8 +136,10 @@ export default function IngestPage() {
         // Dedup hit: reuse existing asset completely
         storageUrl = existing.storage_url;
         reused = true;
-        toast.info("Storage: Reusing existing asset based on local hash.");
+        console.log("Media Guard [Local]: Hash match found.", hash);
+        toast.success("Media Guard: Asset already exists in your library. Reusing storage.");
       } else {
+        console.log("Media Guard [Stage 1]: Starting global registry check for hash:", hash);
         // Step 2.5: Global Media Guard Pre-Check (Stage 1: Identity Guard)
         if (mediaType === "image" || mediaType === "audio") {
           toast.loading("Media Guard: Checking global registry...", { id: "mg-pre" });
@@ -149,12 +153,20 @@ export default function IngestPage() {
                 storageUrl = preData.asset.storage_url;
                 reused = true;
                 mgAction = "exact_match";
+                console.log("Media Guard [Stage 1]: Global exact match found!", storageUrl);
                 toast.success("Media Guard: Exact global match verified. Skipping storage.");
+              } else {
+                console.log("Media Guard [Stage 1]: No global match found. Proceeding to upload.");
                 toast.dismiss("mg-pre");
               }
+            } else {
+              const errorText = await preRes.text();
+              console.error("Media Guard [Stage 1] API Error:", errorText);
+              toast.error("Media Guard: Global registry check failed. Proceeding with fresh upload.");
             }
           } catch (err) {
-            console.error("Media Guard Pre-check Error:", err);
+            console.error("Media Guard Pre-check Exception:", err);
+            toast.error("Media Guard: Pre-check encountered an error.");
           } finally {
             toast.dismiss("mg-pre");
           }
@@ -162,7 +174,14 @@ export default function IngestPage() {
 
         if (!reused) {
           // No match found locally or globally: New asset or similarity candidate
-          storageUrl = await uploadToCloudinary(file, hash, mediaType);
+          console.log("Media Guard [Storage]: Uploading to Cloudinary...");
+          toast.loading("Storage: Uploading to Cloudinary...", { id: "storage" });
+          try {
+            storageUrl = await uploadToCloudinary(file, hash, mediaType);
+            toast.success("Storage: Upload successful.");
+          } finally {
+            toast.dismiss("storage");
+          }
           reused = false;
 
           // Step 3: Media Guard DNA Tracking (Images and Audio only)
@@ -281,8 +300,9 @@ export default function IngestPage() {
       const message =
         err instanceof Error ? err.message : "Something went wrong during ingestion.";
       setResult({ ok: false, error: message });
-      toast.error(message);
+      toast.error(`Ingestion failed: ${message}`);
     } finally {
+      toast.dismiss("ingest-start");
       setBusy(false);
     }
   }
