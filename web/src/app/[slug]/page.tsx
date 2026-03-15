@@ -13,7 +13,12 @@ import {
   Layout,
   Briefcase,
   Wrench,
-  Languages
+  Languages,
+  UserPlus,
+  MessageSquare,
+  Clock,
+  ShieldCheck,
+  Lock
 } from "lucide-react";
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -34,6 +39,7 @@ import { ExperienceTimeline } from "@/components/experience-timeline";
 import { SectionNav } from "@/components/section-nav";
 import { ShareButton } from "@/components/share-button";
 import { AvailabilityBadge } from "@/components/availability-badge";
+import { ProfileConnectionActions } from "@/components/profile-connection-actions";
 import type { Profile, Project, Collaboration } from "@/lib/types/database";
 
 interface PageProps {
@@ -57,17 +63,34 @@ export default async function PublicProfilePage(props: PageProps) {
   }
   const profile = profileData as Profile;
 
-  // 2. Fetch Public Projects
+  // 2. Fetch Projects (RLS handles privacy automatically now)
   const { data: projectsData } = await supabase
     .from("projects")
-    .select("id, title, slug, description, tags, created_at, cover_url, client, role")
+    .select("id, title, slug, description, tags, created_at, cover_url, client, role, is_public")
     .eq("owner_id", profile.id)
-    .eq("is_public", true)
     .order("created_at", { ascending: false });
   
   const projects = (projectsData || []) as Project[];
 
-  // 3. Fetch Verified Credits (Proof of Work)
+  // 3. Check Connection Status with the viewer
+  const { data: { session } } = await supabase.auth.getSession();
+  let connectionStatus = null;
+  let isSender = false;
+
+  if (session && session.user.id !== profile.id) {
+    const { data: conn } = await supabase
+      .from("connections")
+      .select("status, sender_id")
+      .or(`and(sender_id.eq.${session.user.id},receiver_id.eq.${profile.id}),and(sender_id.eq.${profile.id},receiver_id.eq.${session.user.id})`)
+      .single();
+    
+    if (conn) {
+      connectionStatus = conn.status;
+      isSender = conn.sender_id === session.user.id;
+    }
+  }
+
+  // 4. Fetch Verified Credits (Proof of Work)
   const { data: incomingCollabs } = await supabase
     .from("collaborations")
     .select("id, role_title, project_id, project:projects(title)")
@@ -131,8 +154,16 @@ export default async function PublicProfilePage(props: PageProps) {
                   )}
                 </div>
               </div>
-              <div className="pb-2">
+              <div className="pb-2 flex flex-col items-end gap-3">
                 <AvailabilityBadge status={profile.availability_status} />
+                
+                {session && session.user.id !== profile.id && (
+                  <ProfileConnectionActions 
+                    targetId={profile.id} 
+                    initialStatus={connectionStatus} 
+                    isSender={isSender} 
+                  />
+                )}
               </div>
             </div>
 
@@ -271,7 +302,14 @@ export default async function PublicProfilePage(props: PageProps) {
                     <CardHeader className="px-0 pt-6">
                       <div className="flex items-start justify-between gap-4">
                         <div className="space-y-1">
-                          <CardTitle className="text-2xl group-hover:text-primary transition-colors">{project.title}</CardTitle>
+                          <CardTitle className="text-2xl group-hover:text-primary transition-colors flex items-center gap-2">
+                            {project.title}
+                            {!project.is_public && (
+                              <Badge variant="outline" className="bg-zinc-100 text-zinc-600 border-zinc-200 text-[10px] py-0 px-2 h-5 gap-1 uppercase tracking-tighter">
+                                <Lock className="h-3 w-3" /> Private
+                              </Badge>
+                            )}
+                          </CardTitle>
                           {project.client && (
                             <p className="text-sm font-bold text-emerald-600 dark:text-emerald-400">for {project.client}</p>
                           )}

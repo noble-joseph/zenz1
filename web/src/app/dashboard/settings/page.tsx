@@ -285,7 +285,7 @@ export default function SettingsPage() {
                   <div className="space-y-4">
                     <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Core Specializations</Label>
                     <div className="flex flex-wrap gap-2">
-                      {["Cinematography", "Editing", "Directing", "Sound Design", "VFX", "Music Production", "Color Grading", "Photography"].map(spec => (
+                      {["Cinematography", "Editing", "Directing", "Sound Design", "VFX", "Music Production", "Color Grading"].map(spec => (
                         <Badge 
                           key={spec} 
                           onClick={() => toggleArrayItem("specializations", spec)}

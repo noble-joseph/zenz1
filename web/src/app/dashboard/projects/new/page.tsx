@@ -224,14 +224,14 @@ export default function NewProjectPage() {
   const handleSubmit = async () => {
     if (!title.trim()) return toast.error("Title is required.");
     
-    const isCinematographer = profession.toLowerCase().includes("cinematographer");
-    const isMusician = profession.toLowerCase().includes("musician");
-    
-    if (isCinematographer && files.length === 0) {
-      return toast.error("Cinematographers must upload at least 1 image/video.");
+    if (isCinematographer && files.some(f => !f.type.startsWith("image/"))) {
+      return toast.error("Cinematographers can only upload image files.");
     }
-    if (isMusician && files.length === 0) {
-      return toast.error("Musicians must upload at least 1 audio file.");
+    if (isMusician && files.some(f => !f.type.startsWith("audio/"))) {
+      return toast.error("Musicians can only upload audio files for the primary assets.");
+    }
+    if (files.length === 0) {
+      return toast.error("Please upload at least one file.");
     }
 
     setBusy(true);
@@ -445,7 +445,7 @@ export default function NewProjectPage() {
                   type="file" 
                   multiple 
                   className="absolute inset-0 cursor-pointer opacity-0" 
-                  accept={isCinematographer ? "image/*,video/*" : isMusician ? "audio/*" : "*/*"}
+                  accept={isCinematographer ? "image/*" : isMusician ? "audio/*" : "*/*"}
                   onChange={handleFilesChange}
                   disabled={busy}
                 />

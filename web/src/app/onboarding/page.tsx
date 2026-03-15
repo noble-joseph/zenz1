@@ -11,9 +11,6 @@ import { Textarea } from "@/components/ui/textarea";
 const PROFESSIONS = [
   { id: "cinematographer", label: "Cinematographer", icon: Video },
   { id: "musician", label: "Musician", icon: Music },
-  { id: "photographer", label: "Photographer", icon: Camera },
-  { id: "director", label: "Director", icon: User },
-  { id: "designer", label: "Designer", icon: Briefcase },
 ];
 
 export default function OnboardingPage() {

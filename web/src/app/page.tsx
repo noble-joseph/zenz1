@@ -75,7 +75,7 @@ export default async function HomePage() {
               talent.
             </h1>
             <p className="mx-auto mt-6 max-w-2xl text-lg text-muted-foreground lg:text-2xl leading-relaxed">
-              Discover photographers and musicians whose influence is mathematically proven by their collaboration graph.
+              Discover cinematographers and musicians whose influence is mathematically proven by their collaboration graph.
             </p>
           </div>
         </section>

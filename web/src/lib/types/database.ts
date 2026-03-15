@@ -127,6 +127,26 @@ export interface Collaboration {
   updated_at: string;
 }
 
+export type ConnectionStatus = "pending" | "accepted" | "rejected";
+
+export interface Connection {
+  id: string;
+  sender_id: string;
+  receiver_id: string;
+  status: ConnectionStatus;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Message {
+  id: string;
+  sender_id: string;
+  receiver_id: string;
+  content: string;
+  is_read: boolean;
+  created_at: string;
+}
+
 // --- API response types ---
 
 export interface ApiSuccess<T = unknown> {

@@ -19,7 +19,8 @@ create or replace function public.match_creators(
   query_embedding vector(768),
   match_threshold float,
   match_count int,
-  excluded_id uuid
+  excluded_id uuid,
+  preferred_profession text default null
 )
 returns table (
   id uuid,
@@ -46,11 +47,14 @@ as $$
   from public.profiles p
   where 1 - (p.embedding <=> query_embedding) > match_threshold
     and p.id != excluded_id
+    and (preferred_profession is null or p.profession = preferred_profession)
     and not exists (
       select 1 from public.collaborations c 
       where (c.creator_id = p.id and c.requested_by = excluded_id)
          or (c.requested_by = p.id and c.creator_id = excluded_id)
     )
-  order by p.embedding <=> query_embedding
+  order by 
+    (case when p.profession = preferred_profession then 1 else 0 end) desc,
+    p.embedding <=> query_embedding
   limit match_count;
 $$;
