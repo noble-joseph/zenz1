@@ -116,7 +116,38 @@ export default function IngestPage() {
       const hash = await sha256Hex(file);
       const mediaType: MediaType = detectMediaType(file.type);
 
-      // Step 2: Deduplicate — check if asset already exists
+      // Step 2: Media Guard Tracking (Images and Audio only)
+      if (mediaType === "image" || mediaType === "audio") {
+        toast.loading("Media Guard analyzing asset...", { id: "mg" });
+        try {
+          const form = new FormData();
+          form.append("file", file);
+          const mgRes = await fetch("/api/media-guard", {
+            method: "POST",
+            body: form,
+          });
+          if (mgRes.ok) {
+            const mgData = (await mgRes.json()) as any;
+            if (mgData.action === "exact_match") {
+              toast.success("Media Guard: Exact match verified.");
+            } else if (mgData.action === "similar_match") {
+              toast.info(`Media Guard: Derivative linked to parent ${mgData.parent_id.split("-")[0]}`);
+            } else {
+              toast.success("Media Guard: New master asset tracked.");
+            }
+          } else {
+            console.warn("Media Guard API failed:", await mgRes.text());
+            toast.error("Media Guard tracking failed, but upload will continue.");
+          }
+        } catch (err) {
+          console.error("Media Guard Error:", err);
+          toast.error("Media Guard analysis encountered an error.");
+        } finally {
+          toast.dismiss("mg");
+        }
+      }
+
+      // Step 3: Deduplicate against storage — check if asset already exists
       const { data: existing, error: lookupError } = await supabase
         .from("assets")
         .select("hash_id, storage_url")
@@ -132,7 +163,7 @@ export default function IngestPage() {
         // Dedup hit: reuse existing asset
         storageUrl = existing.storage_url;
         reused = true;
-        toast.info("Dedup hit — reusing existing asset.");
+        toast.info("Storage: Reusing existing asset.");
       } else {
         // New asset: upload to Cloudinary
         storageUrl = await uploadToCloudinary(file, hash, mediaType);
