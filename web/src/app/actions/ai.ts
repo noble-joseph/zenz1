@@ -89,7 +89,8 @@ export async function generateProjectMetadataAction(
       const cleanText = responseText.replace(/^```json/i, "").replace(/```$/i, "").trim();
       const data = JSON.parse(cleanText) as { description: string; tags: string[] };
       return { ok: true, data };
-    } catch (error: any) {
+    } catch (err: unknown) {
+      const error = err as any;
       const is429 = error?.status === 429 || error?.message?.includes("429");
       if (is429 && attempt < maxRetries - 1) {
         console.warn(`Rate limited (attempt ${attempt + 1}/${maxRetries}). Retrying in 5s...`);

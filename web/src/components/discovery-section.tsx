@@ -29,16 +29,21 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { getOptimizedCloudinaryUrl } from "@/lib/cloudinary";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
+import type { Asset, Profile } from "@/lib/types/database";
+
+interface Creator extends Profile {
+  // Add any extra fields returned by match_creators RPC if needed
+}
 
 interface DiscoverySectionProps {
-  initialAssets: any[];
-  initialCreators: any[];
+  initialAssets: Asset[];
+  initialCreators: Profile[];
 }
 
 export function DiscoverySection({ initialAssets, initialCreators }: DiscoverySectionProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState("all");
-  const [recommendedTalent, setRecommendedTalent] = useState<any[]>([]);
+  const [recommendedTalent, setRecommendedTalent] = useState<Profile[]>([]);
   const [isLoadingTalent, setIsLoadingTalent] = useState(false);
   const router = useRouter();
   const supabase = createSupabaseBrowserClient();
@@ -46,10 +51,11 @@ export function DiscoverySection({ initialAssets, initialCreators }: DiscoverySe
   // Fetch Recommended Talent (Neural Discovery)
   useEffect(() => {
     async function fetchRecommendations() {
+      if (!supabase) return;
       setIsLoadingTalent(true);
       try {
         const { data: { session } } = await supabase.auth.getSession();
-        if (!session || !supabase) {
+        if (!session) {
           setRecommendedTalent(initialCreators.slice(0, 4));
           return;
         }
@@ -126,7 +132,7 @@ export function DiscoverySection({ initialAssets, initialCreators }: DiscoverySe
           </div>
         </div>
         <p className="mt-4 text-center text-sm text-muted-foreground">
-          Try: "Cinematic studio shot" or "Atmospheric synthwave"
+          Try: &quot;Cinematic studio shot&quot; or &quot;Atmospheric synthwave&quot;
         </p>
       </form>
 
@@ -223,7 +229,7 @@ export function DiscoverySection({ initialAssets, initialCreators }: DiscoverySe
   );
 }
 
-function AssetGrid({ assets, initialCount }: { assets: any[], initialCount: number }) {
+function AssetGrid({ assets, initialCount }: { assets: Asset[], initialCount: number }) {
   if (assets.length === 0) {
     return (
       <div className="col-span-full py-20 text-center border-2 border-dashed rounded-3xl">
