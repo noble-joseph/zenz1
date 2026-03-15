@@ -66,7 +66,7 @@ async function insertMediaAsset(
 
 // ── Image Guard ────────────────────────────────────────────────────────────
 
-const SIMILARITY_THRESHOLD = 0.2;
+const SIMILARITY_THRESHOLD = 0.3; // Allow up to Remix range
 
 export async function guardImage(
   imageBuffer: Buffer,
@@ -130,8 +130,13 @@ export async function guardImage(
     metadata: { ...metadata, storage_url: storageUrl },
   });
 
+  let action: GuardResult["action"] = "new";
+  if (parentId && similarity !== undefined) {
+    action = similarity < 0.1 ? "direct_version" : "remix";
+  }
+
   return {
-    action: parentId ? "similar_match" : "new",
+    action,
     asset: {
       ...asset,
       storage_url: (asset.metadata as any)?.storage_url as string | undefined
@@ -143,7 +148,8 @@ export async function guardImage(
 
 // ── Audio Guard ────────────────────────────────────────────────────────────
 
-const JACCARD_THRESHOLD = 0.8;
+const JACCARD_THRESHOLD = 0.8; // High-fidelity duplicate
+const SAMPLE_THRESHOLD = 0.15; // Partial overlap (Stage 2 requirements)
 
 export async function guardAudio(
   audioBuffer: Buffer,
@@ -196,8 +202,8 @@ export async function guardAudio(
           similarity = score;
         }
       }
-      // Only link if above threshold
-      if (bestScore < JACCARD_THRESHOLD) {
+      // Link if above sample threshold (15%)
+      if (bestScore < SAMPLE_THRESHOLD) {
         parentId = null;
         similarity = undefined;
       }
@@ -219,8 +225,13 @@ export async function guardAudio(
     metadata: { ...metadata, storage_url: storageUrl },
   });
 
+  let action: GuardResult["action"] = "new";
+  if (parentId && similarity !== undefined) {
+    action = similarity >= JACCARD_THRESHOLD ? "exact_match" : "sample";
+  }
+
   return {
-    action: parentId ? "similar_match" : "new",
+    action,
     asset: {
       ...asset,
       storage_url: (asset.metadata as any)?.storage_url as string | undefined

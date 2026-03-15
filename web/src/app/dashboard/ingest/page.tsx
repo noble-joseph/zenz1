@@ -180,8 +180,12 @@ export default function IngestPage() {
                 mgAction = mgData.action;
                 mgParentId = mgData.parent_id || null;
 
-                if (mgAction === "similar_match") {
-                  toast.info(`Media Guard: Derivative linked to parent ${mgParentId?.split("-")[0]}`);
+                if (mgAction === "direct_version") {
+                  toast.success("Media Guard: Direct version linked to parent asset.");
+                } else if (mgAction === "remix") {
+                  toast.info("Media Guard: Remix detected! Attribution linked.");
+                } else if (mgAction === "sample") {
+                  toast.info("Media Guard: Audio sample detected! Credits linked.");
                 } else if (mgAction === "new") {
                   toast.success("Media Guard: New master asset tracked.");
                 }
