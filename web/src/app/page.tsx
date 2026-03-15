@@ -4,7 +4,8 @@ import { ArrowRight, BadgeCheck, Sparkles, LayoutGrid } from "lucide-react";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { DiscoverySection } from "@/components/discovery-section";
+import { DiscoverySection, type AssetWithProfile } from "@/components/discovery-section";
+import type { Profile } from "@/lib/types/database";
 
 export default async function HomePage() {
   const supabase = await createSupabaseServerClient();
@@ -13,7 +14,7 @@ export default async function HomePage() {
   const [topCreatorsResult, featuredAssetsResult] = await Promise.all([
     supabase
       .from("profiles")
-      .select("id, display_name, public_slug, bio, influence_score, avatar_url")
+      .select("id, display_name, public_slug, bio, influence_score, avatar_url, profession")
       .eq("role", "creator")
       .not("display_name", "is", null)
       .not("avatar_url", "is", null)
@@ -27,8 +28,8 @@ export default async function HomePage() {
       .limit(12),
   ]);
 
-  const topCreators = topCreatorsResult.data;
-  const featuredAssets = featuredAssetsResult.data;
+  const topCreators = (topCreatorsResult.data as unknown) as Profile[];
+  const featuredAssets = (featuredAssetsResult.data as unknown) as AssetWithProfile[];
 
   return (
     <div className="flex min-h-screen flex-col bg-background selection:bg-emerald-100 selection:text-emerald-900">

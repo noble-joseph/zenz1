@@ -35,8 +35,15 @@ interface Creator extends Profile {
   // Add any extra fields returned by match_creators RPC if needed
 }
 
+export interface AssetWithProfile extends Asset {
+  profiles?: {
+    display_name?: string | null;
+    avatar_url?: string | null;
+  } | null;
+}
+
 interface DiscoverySectionProps {
-  initialAssets: Asset[];
+  initialAssets: AssetWithProfile[];
   initialCreators: Profile[];
 }
 
@@ -229,7 +236,7 @@ export function DiscoverySection({ initialAssets, initialCreators }: DiscoverySe
   );
 }
 
-function AssetGrid({ assets, initialCount }: { assets: Asset[], initialCount: number }) {
+function AssetGrid({ assets, initialCount }: { assets: AssetWithProfile[], initialCount: number }) {
   if (assets.length === 0) {
     return (
       <div className="col-span-full py-20 text-center border-2 border-dashed rounded-3xl">

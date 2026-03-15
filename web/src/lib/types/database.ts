@@ -174,3 +174,25 @@ export interface DedupeCheckResult {
   exists: boolean;
   asset: Pick<Asset, "hash_id" | "storage_url"> | null;
 }
+
+// --- Media Guard types ---
+
+export interface MediaAsset {
+  id: string;
+  sha256_hash: string;
+  media_type: "image" | "audio";
+  p_hash: string | null;
+  audio_fingerprint: string | null;
+  vibe_vector: number[] | null;
+  parent_id: string | null;
+  created_by: string | null;
+  metadata: AssetMetadata;
+  created_at: string;
+}
+
+export interface GuardResult {
+  action: "exact_match" | "similar_match" | "new";
+  asset: MediaAsset;
+  similarity?: number;
+  parent_id?: string;
+}
