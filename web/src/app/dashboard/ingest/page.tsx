@@ -125,8 +125,8 @@ export default function IngestPage() {
 
       if (lookupError) throw lookupError;
 
-      let storageUrl: string;
-      let reused: boolean;
+      let storageUrl = "";
+      let reused = false;
       let mgParentId: string | null = null;
       let mgAction: string | null = null;
 
@@ -134,52 +134,68 @@ export default function IngestPage() {
         // Dedup hit: reuse existing asset completely
         storageUrl = existing.storage_url;
         reused = true;
-        toast.info("Storage: Reusing existing asset based on hash.");
+        toast.info("Storage: Reusing existing asset based on local hash.");
       } else {
-        // Not a perfect hash match in our main assets table.
-        // Let's check Media Guard first. Wait, we need the Cloudinary URL to save it if it's new.
-        // So we will upload to Cloudinary first. Yes, this means the very first exact collision 
-        // across users might double-upload to Cloudinary, but the DB will reuse it.
-        storageUrl = await uploadToCloudinary(file, hash, mediaType);
-        reused = false;
-
-        // Step 3: Media Guard Tracking (Images and Audio only)
+        // Step 2.5: Global Media Guard Pre-Check (Stage 1: Identity Guard)
         if (mediaType === "image" || mediaType === "audio") {
-          toast.loading("Media Guard analyzing asset...", { id: "mg" });
+          toast.loading("Media Guard: Checking global registry...", { id: "mg-pre" });
           try {
-            const form = new FormData();
-            form.append("file", file);
-            form.append("storage_url", storageUrl); // Pass the URL to save it!
-
-            const mgRes = await fetch("/api/media-guard", {
-              method: "POST",
-              body: form,
-            });
-
-            if (mgRes.ok) {
-              const mgData = await mgRes.json() as any;
-              mgAction = mgData.action;
-              mgParentId = mgData.parent_id || null;
-
-              if (mgAction === "exact_match") {
-                // Wait, it WAS an exact match globally? Override the Cloudinary URL to reuse the original!
-                storageUrl = mgData.asset.storage_url || storageUrl;
+            const preCheckForm = new FormData();
+            preCheckForm.append("hash", hash);
+            const preRes = await fetch("/api/media-guard", { method: "POST", body: preCheckForm });
+            if (preRes.ok) {
+              const preData = await preRes.json();
+              if (preData.action === "exact_match" && preData.asset?.storage_url) {
+                storageUrl = preData.asset.storage_url;
                 reused = true;
-                toast.success("Media Guard: Exact global match verified. Reusing master.");
-              } else if (mgAction === "similar_match") {
-                toast.info(`Media Guard: Derivative linked to parent ${mgParentId?.split("-")[0]}`);
-              } else {
-                toast.success("Media Guard: New master asset tracked.");
+                mgAction = "exact_match";
+                toast.success("Media Guard: Exact global match verified. Skipping storage.");
+                toast.dismiss("mg-pre");
               }
-            } else {
-              console.warn("Media Guard API failed:", await mgRes.text());
-              toast.error("Media Guard tracking failed, but upload will continue.");
             }
           } catch (err) {
-            console.error("Media Guard Error:", err);
-            toast.error("Media Guard analysis encountered an error.");
+            console.error("Media Guard Pre-check Error:", err);
           } finally {
-            toast.dismiss("mg");
+            toast.dismiss("mg-pre");
+          }
+        }
+
+        if (!reused) {
+          // No match found locally or globally: New asset or similarity candidate
+          storageUrl = await uploadToCloudinary(file, hash, mediaType);
+          reused = false;
+
+          // Step 3: Media Guard DNA Tracking (Images and Audio only)
+          if (mediaType === "image" || mediaType === "audio") {
+            toast.loading("Media Guard: Generating DNA...", { id: "mg-dna" });
+            try {
+              const form = new FormData();
+              form.append("file", file);
+              form.append("storage_url", storageUrl);
+
+              const mgRes = await fetch("/api/media-guard", { method: "POST", body: form });
+
+              if (mgRes.ok) {
+                const mgData = await mgRes.json() as any;
+                mgAction = mgData.action;
+                mgParentId = mgData.parent_id || null;
+
+                if (mgAction === "similar_match") {
+                  toast.info(`Media Guard: Derivative linked to parent ${mgParentId?.split("-")[0]}`);
+                } else if (mgAction === "new") {
+                  toast.success("Media Guard: New master asset tracked.");
+                }
+              } else {
+                const errText = await mgRes.text();
+                console.warn("Media Guard DNA failure:", errText);
+                toast.error("Media Guard: DNA analysis failed (it may be loading model).");
+              }
+            } catch (err) {
+              console.error("Media Guard DNA Error:", err);
+              toast.error("Media Guard: Semantic DNA engine encountered an error.");
+            } finally {
+              toast.dismiss("mg-dna");
+            }
           }
         }
 

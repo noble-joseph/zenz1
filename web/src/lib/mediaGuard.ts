@@ -28,7 +28,7 @@ function sha256(buffer: Buffer): string {
 /**
  * Check if a media asset with this exact hash already exists.
  */
-async function findExactMatch(hash: string): Promise<(MediaAsset & { storage_url?: string }) | null> {
+export async function findExactMatch(hash: string): Promise<(MediaAsset & { storage_url?: string }) | null> {
   const supabase = await createSupabaseServerClient();
   const { data } = await supabase
     .from("media_assets")

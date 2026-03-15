@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { guardImage, guardAudio } from "@/lib/mediaGuard";
+import { guardImage, guardAudio, findExactMatch } from "@/lib/mediaGuard";
 import type { AssetMetadata } from "@/lib/types/database";
 
 /**
@@ -27,7 +27,20 @@ export async function POST(req: NextRequest) {
     // Parse multipart form data
     const formData = await req.formData();
     const file = formData.get("file");
+    const hash = formData.get("hash") as string | undefined;
     const storageUrl = formData.get("storage_url") as string | undefined;
+
+    // Handle Pre-Upload Hash Check (Stage 1: Identity Guard)
+    if (hash && !file) {
+      const match = await findExactMatch(hash);
+      if (match) {
+        return NextResponse.json({
+          action: "exact_match",
+          asset: match,
+        });
+      }
+      return NextResponse.json({ action: "not_found" });
+    }
 
     if (!file || !(file instanceof File)) {
       return NextResponse.json(
