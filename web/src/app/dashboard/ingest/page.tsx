@@ -116,38 +116,7 @@ export default function IngestPage() {
       const hash = await sha256Hex(file);
       const mediaType: MediaType = detectMediaType(file.type);
 
-      // Step 2: Media Guard Tracking (Images and Audio only)
-      if (mediaType === "image" || mediaType === "audio") {
-        toast.loading("Media Guard analyzing asset...", { id: "mg" });
-        try {
-          const form = new FormData();
-          form.append("file", file);
-          const mgRes = await fetch("/api/media-guard", {
-            method: "POST",
-            body: form,
-          });
-          if (mgRes.ok) {
-            const mgData = (await mgRes.json()) as any;
-            if (mgData.action === "exact_match") {
-              toast.success("Media Guard: Exact match verified.");
-            } else if (mgData.action === "similar_match") {
-              toast.info(`Media Guard: Derivative linked to parent ${mgData.parent_id.split("-")[0]}`);
-            } else {
-              toast.success("Media Guard: New master asset tracked.");
-            }
-          } else {
-            console.warn("Media Guard API failed:", await mgRes.text());
-            toast.error("Media Guard tracking failed, but upload will continue.");
-          }
-        } catch (err) {
-          console.error("Media Guard Error:", err);
-          toast.error("Media Guard analysis encountered an error.");
-        } finally {
-          toast.dismiss("mg");
-        }
-      }
-
-      // Step 3: Deduplicate against storage — check if asset already exists
+      // Step 2: Deduplicate against storage — check if asset already exists
       const { data: existing, error: lookupError } = await supabase
         .from("assets")
         .select("hash_id, storage_url")
@@ -158,16 +127,61 @@ export default function IngestPage() {
 
       let storageUrl: string;
       let reused: boolean;
+      let mgParentId: string | null = null;
+      let mgAction: string | null = null;
 
       if (existing) {
-        // Dedup hit: reuse existing asset
+        // Dedup hit: reuse existing asset completely
         storageUrl = existing.storage_url;
         reused = true;
-        toast.info("Storage: Reusing existing asset.");
+        toast.info("Storage: Reusing existing asset based on hash.");
       } else {
-        // New asset: upload to Cloudinary
+        // Not a perfect hash match in our main assets table.
+        // Let's check Media Guard first. Wait, we need the Cloudinary URL to save it if it's new.
+        // So we will upload to Cloudinary first. Yes, this means the very first exact collision 
+        // across users might double-upload to Cloudinary, but the DB will reuse it.
         storageUrl = await uploadToCloudinary(file, hash, mediaType);
         reused = false;
+
+        // Step 3: Media Guard Tracking (Images and Audio only)
+        if (mediaType === "image" || mediaType === "audio") {
+          toast.loading("Media Guard analyzing asset...", { id: "mg" });
+          try {
+            const form = new FormData();
+            form.append("file", file);
+            form.append("storage_url", storageUrl); // Pass the URL to save it!
+
+            const mgRes = await fetch("/api/media-guard", {
+              method: "POST",
+              body: form,
+            });
+
+            if (mgRes.ok) {
+              const mgData = await mgRes.json() as any;
+              mgAction = mgData.action;
+              mgParentId = mgData.parent_id || null;
+
+              if (mgAction === "exact_match") {
+                // Wait, it WAS an exact match globally? Override the Cloudinary URL to reuse the original!
+                storageUrl = mgData.asset.storage_url || storageUrl;
+                reused = true;
+                toast.success("Media Guard: Exact global match verified. Reusing master.");
+              } else if (mgAction === "similar_match") {
+                toast.info(`Media Guard: Derivative linked to parent ${mgParentId?.split("-")[0]}`);
+              } else {
+                toast.success("Media Guard: New master asset tracked.");
+              }
+            } else {
+              console.warn("Media Guard API failed:", await mgRes.text());
+              toast.error("Media Guard tracking failed, but upload will continue.");
+            }
+          } catch (err) {
+            console.error("Media Guard Error:", err);
+            toast.error("Media Guard analysis encountered an error.");
+          } finally {
+            toast.dismiss("mg");
+          }
+        }
 
         // Generate AI Embedding for the Vibe Search
         const semanticContext = `Media Type: ${mediaType}. Filename: ${file.name}. Context: ${commitMessage.trim()}`;
@@ -181,6 +195,8 @@ export default function IngestPage() {
             originalName: file.name,
             size: file.size,
             type: file.type,
+            parent_id: mgParentId,
+            mg_action: mgAction
           },
         };
 

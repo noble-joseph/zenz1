@@ -191,8 +191,8 @@ export interface MediaAsset {
 }
 
 export interface GuardResult {
-  action: "exact_match" | "similar_match" | "new";
-  asset: MediaAsset;
+  action: "new" | "exact_match" | "similar_match";
+  asset: MediaAsset & { storage_url?: string }; // Include storage_url for easier access
   similarity?: number;
   parent_id?: string;
 }

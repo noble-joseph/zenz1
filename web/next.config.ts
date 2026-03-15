@@ -15,9 +15,7 @@ const nextConfig: NextConfig = {
       "./node_modules/@img/sharp-libvips-*/**/*" // optional but helps
     ],
   },
-  experimental: {
-    serverComponentsExternalPackages: ["sharp", "onnxruntime-node"],
-  },
+  serverExternalPackages: ["sharp", "onnxruntime-node"],
   webpack: (config, { isServer }) => {
     if (isServer) {
       config.resolve.alias = {

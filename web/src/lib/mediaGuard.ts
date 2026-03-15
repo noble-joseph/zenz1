@@ -28,15 +28,21 @@ function sha256(buffer: Buffer): string {
 /**
  * Check if a media asset with this exact hash already exists.
  */
-async function findExactMatch(hash: string): Promise<MediaAsset | null> {
+async function findExactMatch(hash: string): Promise<(MediaAsset & { storage_url?: string }) | null> {
   const supabase = await createSupabaseServerClient();
   const { data } = await supabase
     .from("media_assets")
     .select("*")
     .eq("sha256_hash", hash)
-    .single();
+    .maybeSingle();
 
-  return (data as MediaAsset | null) ?? null;
+  if (!data) return null;
+
+  const asset = data as MediaAsset;
+  return {
+    ...asset,
+    storage_url: (asset.metadata as any)?.storage_url as string | undefined
+  };
 }
 
 /**
@@ -65,6 +71,7 @@ const SIMILARITY_THRESHOLD = 0.2;
 export async function guardImage(
   imageBuffer: Buffer,
   metadata: AssetMetadata = {},
+  storageUrl?: string,
 ): Promise<GuardResult> {
   // 1. SHA-256 exact match check
   const hash = sha256(imageBuffer);
@@ -120,12 +127,15 @@ export async function guardImage(
     vibe_vector: vibeVector,
     parent_id: parentId,
     created_by: user?.id ?? null,
-    metadata,
+    metadata: { ...metadata, storage_url: storageUrl },
   });
 
   return {
     action: parentId ? "similar_match" : "new",
-    asset,
+    asset: {
+      ...asset,
+      storage_url: (asset.metadata as any)?.storage_url as string | undefined
+    },
     similarity,
     parent_id: parentId ?? undefined,
   };
@@ -139,6 +149,7 @@ export async function guardAudio(
   audioBuffer: Buffer,
   metadata: AssetMetadata = {},
   fileExtension = "mp3",
+  storageUrl?: string,
 ): Promise<GuardResult> {
   // 1. SHA-256 exact match check
   const hash = sha256(audioBuffer);
@@ -205,12 +216,15 @@ export async function guardAudio(
     vibe_vector: null,
     parent_id: parentId,
     created_by: user?.id ?? null,
-    metadata,
+    metadata: { ...metadata, storage_url: storageUrl },
   });
 
   return {
     action: parentId ? "similar_match" : "new",
-    asset,
+    asset: {
+      ...asset,
+      storage_url: (asset.metadata as any)?.storage_url as string | undefined
+    },
     similarity,
     parent_id: parentId ?? undefined,
   };

@@ -27,6 +27,7 @@ export async function POST(req: NextRequest) {
     // Parse multipart form data
     const formData = await req.formData();
     const file = formData.get("file");
+    const storageUrl = formData.get("storage_url") as string | undefined;
 
     if (!file || !(file instanceof File)) {
       return NextResponse.json(
@@ -51,10 +52,10 @@ export async function POST(req: NextRequest) {
     let result;
 
     if (mimeType.startsWith("image/")) {
-      result = await guardImage(buffer, metadata);
+      result = await guardImage(buffer, metadata, storageUrl);
     } else if (mimeType.startsWith("audio/")) {
       const ext = file.name.split(".").pop() ?? "mp3";
-      result = await guardAudio(buffer, metadata, ext);
+      result = await guardAudio(buffer, metadata, ext, storageUrl);
     } else {
       return NextResponse.json(
         {
