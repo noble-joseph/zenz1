@@ -5,9 +5,9 @@
 
 CREATE SCHEMA IF NOT EXISTS public;
 
--- 1. Add vector column (1536 dimensions for text-embedding-3-small)
+-- 1. Add vector column (768 dimensions for gemini-embedding-001)
 alter table public.assets
-add column if not exists embedding vector(1536);
+add column if not exists embedding vector(768);
 
 -- 2. Add an IVF-Flat index for faster approximate nearest neighbor (ANN) search
 -- Note: 'lists' parameter should be scaled based on expected row count. 
@@ -20,7 +20,7 @@ create index if not exists idx_assets_embedding
 -- 3. Create RPC matching function
 -- We return distinct assets (content-addressed) to avoid duplicates in search results
 create or replace function public.search_assets(
-  query_embedding vector(1536),
+  query_embedding vector(768),
   match_threshold float,
   match_count int
 )

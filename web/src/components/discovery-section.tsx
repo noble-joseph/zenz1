@@ -9,6 +9,8 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/components/ui/tabs";
+import Image from "next/image";
+import { getOptimizedCloudinaryUrl } from "@/lib/cloudinary";
 
 interface DiscoverySectionProps {
   initialAssets: any[];
@@ -86,10 +88,13 @@ export function DiscoverySection({ initialAssets, initialCreators }: DiscoverySe
               filteredAssets.map((asset) => (
                 <div key={asset.hash_id} className="group relative aspect-square overflow-hidden rounded-3xl border-4 border-background shadow-lg hover:shadow-2xl transition-all duration-500">
                   {asset.media_type === "image" ? (
-                    <img 
-                      src={`/api/signed-url?hash=${asset.hash_id}`} 
-                      alt="Work" 
-                      className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-110" 
+                    <Image 
+                      src={getOptimizedCloudinaryUrl(asset.storage_url, { width: 600, height: 600, crop: "fill" })} 
+                      alt={asset.metadata?.originalName || "Work"} 
+                      fill
+                      sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 25vw"
+                      className="object-cover transition-transform duration-700 group-hover:scale-110" 
+                      priority={initialAssets.indexOf(asset) < 4}
                     />
                   ) : (
                     <div className="flex h-full w-full flex-col items-center justify-center bg-zinc-900 text-white p-6 text-center">

@@ -2,18 +2,21 @@ import { BadgeCheck, Sparkles, FolderGit2, Users, Music } from "lucide-react";
 import Link from "next/link";
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { generateEmbedding } from "@/lib/embeddings";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import Image from "next/image";
+import { getOptimizedCloudinaryUrl } from "@/lib/cloudinary";
 
 // A server component that fetches the top assets by semantic match
 export async function VibeSearchResults({ query }: { query: string }) {
   if (!query) return null;
 
-  const url = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
-  const res = await fetch(`${url}/api/embeddings?q=${encodeURIComponent(query)}`);
-  
-  if (!res.ok) {
+  let vector: number[] = [];
+  try {
+    vector = await generateEmbedding(query);
+  } catch (err) {
     return (
       <div className="py-12 text-center text-red-500">
         Failed to analyze search query. Ensure GOOGLE_GENERATIVE_AI_API_KEY is configured.
@@ -21,7 +24,6 @@ export async function VibeSearchResults({ query }: { query: string }) {
     );
   }
 
-  const { vector } = await res.json();
   if (!vector || !Array.isArray(vector) || vector.length === 0) {
     return (
       <div className="py-12 text-center text-red-500">
@@ -114,10 +116,12 @@ export async function VibeSearchResults({ query }: { query: string }) {
                 >
                   <div className="relative aspect-square w-full overflow-hidden bg-muted">
                     {asset.media_type === "image" && asset.storage_url ? (
-                      <img
-                        src={`/api/signed-url?hash=${asset.hash_id}`}
+                      <Image
+                        src={getOptimizedCloudinaryUrl(asset.storage_url, { width: 600, height: 600, crop: "fill" })}
                         alt={meta.originalName || "Asset"}
-                        className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
+                        fill
+                        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                        className="object-cover transition-transform duration-700 group-hover:scale-105"
                         loading="lazy"
                       />
                     ) : asset.media_type === "video" && asset.storage_url ? (

@@ -9,23 +9,26 @@ import { DiscoverySection } from "@/components/discovery-section";
 export default async function HomePage() {
   const supabase = await createSupabaseServerClient();
 
-  // Fetch top creators
-  const { data: topCreators } = await supabase
-    .from("profiles")
-    .select("id, display_name, public_slug, bio, influence_score, avatar_url")
-    .eq("role", "creator")
-    .not("display_name", "is", null)
-    .not("avatar_url", "is", null)
-    .order("influence_score", { ascending: false })
-    .limit(6);
+  // Fetch top creators and featured assets in parallel
+  const [topCreatorsResult, featuredAssetsResult] = await Promise.all([
+    supabase
+      .from("profiles")
+      .select("id, display_name, public_slug, bio, influence_score, avatar_url")
+      .eq("role", "creator")
+      .not("display_name", "is", null)
+      .not("avatar_url", "is", null)
+      .order("influence_score", { ascending: false })
+      .limit(6),
+    supabase
+      .from("assets")
+      .select("*, profiles!inner(display_name, avatar_url)")
+      .not("profiles.display_name", "is", null)
+      .order("created_at", { ascending: false })
+      .limit(12),
+  ]);
 
-  // Fetch featured assets (Photography and Music)
-  const { data: featuredAssets } = await supabase
-    .from("assets")
-    .select("*, profiles!inner(display_name, avatar_url)")
-    .not("profiles.display_name", "is", null)
-    .order("created_at", { ascending: false })
-    .limit(12);
+  const topCreators = topCreatorsResult.data;
+  const featuredAssets = featuredAssetsResult.data;
 
   return (
     <div className="flex min-h-screen flex-col bg-background selection:bg-emerald-100 selection:text-emerald-900">

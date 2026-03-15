@@ -18,7 +18,8 @@ import {
   Globe2,
   Activity,
   Award,
-  Calendar
+  Calendar,
+  Loader2
 } from "lucide-react";
 import { toast } from "sonner";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
@@ -48,9 +49,12 @@ export default function NetworkPage() {
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({ influence: 0, verifiedCount: 0 });
   const [profile, setProfile] = useState<any>(null);
+  const [discovery, setDiscovery] = useState<any[]>([]);
+  const [discoveryLoading, setDiscoveryLoading] = useState(false);
 
   useEffect(() => {
     void loadNetwork();
+    void loadDiscovery();
   }, []);
 
   async function loadNetwork() {
@@ -113,6 +117,21 @@ export default function NetworkPage() {
       toast.error("Failed to load network");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function loadDiscovery() {
+    setDiscoveryLoading(true);
+    try {
+        const res = await fetch("/api/neural-discovery");
+        if (res.ok) {
+            const data = await res.json();
+            setDiscovery(data.matches || []);
+        }
+    } catch (err) {
+        console.error("Discovery failed", err);
+    } finally {
+        setDiscoveryLoading(false);
     }
   }
 
@@ -241,20 +260,18 @@ export default function NetworkPage() {
               )}
            </TabsTrigger>
            <TabsTrigger value="discover" className="rounded-xl px-8 py-3 data-[state=active]:bg-background data-[state=active]:shadow-sm">
-              <Sparkles className="h-4 w-4 mr-2" /> Discover
+              <Sparkles className="h-4 w-4 mr-2" /> Neural Discover
            </TabsTrigger>
         </TabsList>
 
         <TabsContent value="connections" className="space-y-6">
+           {/* ... existing connections logic ... */}
            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {verifiedConnections.length === 0 ? (
                  <div className="col-span-full py-32 text-center border-4 border-dashed rounded-[3rem] bg-muted/5 transition-all hover:bg-muted/10">
                     <Users className="h-16 w-16 mx-auto mb-6 text-muted-foreground opacity-20" />
                     <h3 className="text-2xl font-black tracking-tight">Build Your Web</h3>
                     <p className="text-muted-foreground max-w-xs mx-auto mt-2 leading-relaxed">Your professional network is empty. Start collaborating on projects to verify your talent.</p>
-                    <Button variant="outline" className="mt-8 rounded-full h-12 px-8 border-2 font-bold group">
-                        Connect with Creators <ArrowUpRight className="h-4 w-4 ml-2 group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
-                    </Button>
                  </div>
               ) : (
                  verifiedConnections.map((conn) => (
@@ -277,7 +294,6 @@ export default function NetworkPage() {
                           <div className="p-5 rounded-2xl bg-muted/30 border border-muted-foreground/10 mb-8 relative overflow-hidden group/box">
                              <p className="text-[10px] uppercase tracking-widest font-black text-muted-foreground mb-1.5 opacity-60">Verified Collaboration</p>
                              <p className="text-sm font-bold truncate pr-6">{conn.project_title}</p>
-                             <div className="absolute top-4 right-4 h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
                           </div>
 
                           <div className="grid grid-cols-2 gap-3">
@@ -287,7 +303,7 @@ export default function NetworkPage() {
                                 </Button>
                              </Link>
                              <Button className="rounded-2xl font-black h-12 w-full shadow-lg shadow-primary/20 text-xs uppercase tracking-widest">
-                                Ping
+                                Message
                              </Button>
                           </div>
                        </div>
@@ -298,6 +314,7 @@ export default function NetworkPage() {
         </TabsContent>
 
         <TabsContent value="analytics" className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            {/* ... analytics content ... */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                 <Card className="rounded-[2.5rem] border-2 bg-background p-8 space-y-4">
                     <div className="h-12 w-12 rounded-2xl bg-blue-500/10 flex items-center justify-center">
@@ -357,11 +374,8 @@ export default function NetworkPage() {
                                     >
                                         <div className="absolute bottom-0 left-0 w-full bg-primary/40 h-2 group-hover:h-full transition-all duration-500" />
                                     </div>
-                                    <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-zinc-900 text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity">
-                                        {day.count}
-                                    </div>
                                 </div>
-                                <span className="text-[9px] font-black uppercase text-muted-foreground opacity-40 group-hover:opacity-100 rotate-45 md:rotate-0">{day.date}</span>
+                                <span className="text-[9px] font-black uppercase text-muted-foreground opacity-40 group-hover:opacity-100">{day.date}</span>
                             </div>
                         ))}
                     </div>
@@ -371,21 +385,15 @@ export default function NetworkPage() {
                 <Card className="rounded-[3rem] border-2 bg-background p-10">
                     <CardTitle className="text-xl font-black mb-10">Professional Density</CardTitle>
                     <div className="space-y-8">
-                        {analyticsData.topRoles.length === 0 ? (
-                            <div className="text-center py-20 opacity-30">
-                                <Users className="h-10 w-10 mx-auto" />
-                            </div>
-                        ) : (
-                            analyticsData.topRoles.map(([role, count]) => (
-                                <div key={role} className="space-y-3">
-                                    <div className="flex justify-between items-end">
-                                        <span className="text-sm font-black uppercase tracking-widest">{role}</span>
-                                        <span className="text-xs font-bold text-muted-foreground">{count} connections</span>
-                                    </div>
-                                    <Progress value={(count / verifiedConnections.length) * 100} className="h-2" />
+                        {analyticsData.topRoles.map(([role, count]) => (
+                            <div key={role} className="space-y-3">
+                                <div className="flex justify-between items-end">
+                                    <span className="text-sm font-black uppercase tracking-widest">{role}</span>
+                                    <span className="text-xs font-bold text-muted-foreground">{count} connects</span>
                                 </div>
-                            ))
-                        )}
+                                <Progress value={(count / (verifiedConnections.length || 1)) * 100} className="h-2" />
+                            </div>
+                        ))}
                         <p className="text-[10px] text-muted-foreground text-center pt-6 uppercase tracking-[0.2em] font-black">Core Network Composition</p>
                     </div>
                 </Card>
@@ -393,11 +401,12 @@ export default function NetworkPage() {
         </TabsContent>
 
         <TabsContent value="requests" className="space-y-6">
+           {/* ... existing requests logic ... */}
            {pendingRequests.length === 0 ? (
               <div className="py-32 text-center border-4 border-dashed rounded-[3rem] bg-muted/5">
                  <Clock className="h-16 w-16 mx-auto mb-6 text-muted-foreground opacity-20" />
-                 <h3 className="text-2xl font-black">Pure Horizon</h3>
-                 <p className="text-muted-foreground max-w-xs mx-auto mt-2 text-sm leading-relaxed">No pending requests found. When colleagues tag you in projects, you'll see them here.</p>
+                 <h3 className="text-2xl font-black">Clear Horizon</h3>
+                 <p className="text-muted-foreground max-w-xs mx-auto mt-2 text-sm leading-relaxed">No pending requests found.</p>
               </div>
            ) : (
               <div className="grid gap-4 max-w-4xl mx-auto">
@@ -410,20 +419,11 @@ export default function NetworkPage() {
                           </Avatar>
                           <div className="flex-1 text-center md:text-left space-y-2">
                              <p className="font-black text-2xl tracking-tight">{req.creator_name}</p>
-                             <p className="text-muted-foreground text-lg">
-                                Tagged you as <span className="text-primary font-black underline underline-offset-4 Decoration-primary/30">"{req.role_title}"</span>
-                             </p>
-                             <div className="pt-2">
-                                <Badge variant="secondary" className="px-4 py-1.5 rounded-full font-bold">Project: {req.project_title}</Badge>
-                             </div>
+                             <p className="text-muted-foreground text-lg">Tagged you as <span className="text-primary font-black underline">"{req.role_title}"</span></p>
                           </div>
-                          <div className="flex flex-col sm:flex-row items-center gap-4">
-                             <Button variant="ghost" className="rounded-2xl h-14 px-8 font-black text-destructive hover:bg-destructive/5 uppercase tracking-widest text-xs">
-                                Ignore
-                             </Button>
-                             <Button className="rounded-2xl h-14 px-10 font-black shadow-xl shadow-primary/20 gap-2 uppercase tracking-widest text-xs">
-                                <CheckCircle className="h-4 w-4" /> Verify Credit
-                             </Button>
+                          <div className="flex gap-4">
+                             <Button variant="ghost" className="rounded-2xl h-14 px-8 font-black text-destructive uppercase tracking-widest text-xs">Ignore</Button>
+                             <Button className="rounded-2xl h-14 px-10 font-black shadow-xl shadow-primary/20 gap-2 uppercase tracking-widest text-xs">Verify Credit</Button>
                           </div>
                        </div>
                     </Card>
@@ -432,23 +432,66 @@ export default function NetworkPage() {
            )}
         </TabsContent>
 
-        <TabsContent value="discover" className="space-y-6">
-           <div className="py-32 text-center border-4 border-dashed rounded-[4rem] bg-muted/5 relative overflow-hidden group">
-              <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(var(--primary),0.08),transparent)] pointer-events-none group-hover:scale-110 transition-transform duration-1000" />
-              <div className="relative z-10 max-w-md mx-auto">
-                 <div className="h-24 w-24 rounded-[2.5rem] bg-zinc-950 flex items-center justify-center mx-auto mb-10 shadow-2xl relative overflow-hidden">
-                    <Sparkles className="h-10 w-10 text-primary animate-pulse relative z-10" />
-                    <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-primary/20 to-transparent" />
-                 </div>
-                 <h3 className="text-3xl font-black tracking-tighter mb-4">Neural Discovery</h3>
-                 <p className="text-muted-foreground mb-10 text-lg leading-relaxed">
-                   We're currently training our algorithm to match you with compatible creators based on your artistic blueprint.
-                 </p>
-                 <Button className="rounded-full h-14 px-10 font-black gap-3 bg-gradient-to-r from-zinc-900 to-zinc-800 text-white border-2 border-white/10 shadow-2xl hover:scale-105 active:scale-95 transition-all">
-                    Secure Early Access <ArrowUpRight className="h-5 w-5" />
-                 </Button>
-                 <p className="mt-8 text-[10px] font-black uppercase tracking-[0.3em] text-primary">In Beta Development</p>
-              </div>
+        <TabsContent value="discover" className="space-y-8">
+           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {discoveryLoading ? (
+                  Array.from({ length: 6 }).map((_, i) => (
+                    <Card key={i} className="rounded-[2.5rem] border-2 bg-muted/5 p-8 animate-pulse">
+                        <div className="flex items-center gap-4 mb-6">
+                            <div className="h-16 w-16 rounded-full bg-muted" />
+                            <div className="flex-1 space-y-2">
+                                <div className="h-4 w-24 bg-muted rounded" />
+                                <div className="h-3 w-16 bg-muted rounded" />
+                            </div>
+                        </div>
+                        <div className="h-20 w-full bg-muted rounded-xl mb-4" />
+                        <div className="h-10 w-full bg-muted rounded-xl" />
+                    </Card>
+                  ))
+              ) : discovery.length === 0 ? (
+                <div className="col-span-full py-32 text-center border-4 border-dashed rounded-[4rem] bg-muted/5 relative overflow-hidden">
+                    <Sparkles className="h-16 w-16 mx-auto mb-6 text-primary opacity-20" />
+                    <h3 className="text-2xl font-black tracking-tight">Expand Your Blueprint</h3>
+                    <p className="text-muted-foreground max-w-sm mx-auto mt-2 leading-relaxed text-sm">
+                        Add more detail to your bio and skills in Settings to help our neural engine find your creative twins.
+                    </p>
+                </div>
+              ) : (
+                discovery.map((match) => (
+                    <Card key={match.id} className="group rounded-[2.5rem] overflow-hidden border-2 border-muted hover:border-primary/40 transition-all bg-card/50 hover:shadow-xl relative">
+                        <div className="absolute top-6 right-8 rounded-full bg-primary/10 text-primary px-3 py-1 text-[10px] font-black uppercase tracking-widest">
+                            {Math.round(match.similarity * 100)}% Match
+                        </div>
+                        <div className="p-8">
+                            <div className="flex items-center gap-5 mb-6">
+                                <Avatar className="h-16 w-16 ring-4 ring-primary/5">
+                                    <AvatarImage src={match.avatar_url} className="object-cover" />
+                                    <AvatarFallback className="font-black text-xl">{match.display_name?.[0]}</AvatarFallback>
+                                </Avatar>
+                                <div className="flex-1 truncate">
+                                    <p className="font-black text-lg truncate group-hover:text-primary transition-colors">{match.display_name}</p>
+                                    <p className="text-xs font-bold text-muted-foreground truncate">{match.profession}</p>
+                                </div>
+                            </div>
+                            
+                            <p className="text-sm text-muted-foreground line-clamp-3 mb-8 min-h-[60px] leading-relaxed">
+                                {match.bio || "No professional blueprint provided yet."}
+                            </p>
+
+                            <div className="grid grid-cols-2 gap-3">
+                                <Link href={`/${match.public_slug}`}>
+                                    <Button variant="outline" className="w-full rounded-2xl font-black h-12 border-2 text-[10px] uppercase tracking-widest">
+                                        Blueprint
+                                    </Button>
+                                </Link>
+                                <Button className="rounded-2xl font-black h-12 w-full shadow-lg shadow-primary/20 text-[10px] uppercase tracking-widest">
+                                    Collaborate
+                                </Button>
+                            </div>
+                        </div>
+                    </Card>
+                ))
+              )}
            </div>
         </TabsContent>
       </Tabs>
