@@ -9,6 +9,12 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  outputFileTracingExcludes: {
+    "**/*": [
+      "./node_modules/onnxruntime-node/**/*",
+      "./node_modules/@img/sharp-libvips-*/**/*" // optional but helps
+    ],
+  },
   experimental: {
     serverComponentsExternalPackages: ["sharp", "onnxruntime-node"],
   },
