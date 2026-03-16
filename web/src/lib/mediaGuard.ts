@@ -9,7 +9,7 @@
  */
 
 import { createHash } from "node:crypto";
-import { createSupabaseServerClient, createSupabaseAdminClient } from "@/lib/supabase/server";
+import { createSupabaseAdminClient } from "@/lib/supabase/server";
 import { computePHash, hammingDistance } from "@/lib/phash";
 import { generateVibeVector } from "@/lib/vibeVector";
 import {
@@ -31,7 +31,7 @@ function sha256(buffer: Buffer): string {
  */
 export async function findExactMatch(hash: string): Promise<(MediaAsset & { storage_url?: string }) | null> {
   const supabase = createSupabaseAdminClient();
-  const { data, error } = await supabase
+  const { data } = await supabase
     .from("media_assets")
     .select("*")
     .eq("sha256_hash", hash)
@@ -42,7 +42,7 @@ export async function findExactMatch(hash: string): Promise<(MediaAsset & { stor
   const asset = data as MediaAsset;
   return {
     ...asset,
-    storage_url: (asset.metadata as any)?.storage_url as string | undefined
+    storage_url: (asset.metadata as { storage_url?: string })?.storage_url
   };
 }
 
@@ -119,11 +119,11 @@ export async function guardImage(
       }
 
       if (matches && matches.length > 0) {
-        const best = matches[0] as { id: string; distance: number; created_by?: string; metadata?: any };
+        const best = matches[0] as { id: string; distance: number; created_by?: string; metadata?: { storage_url?: string } };
         parentId = best.id;
         similarity = best.distance;
         parentOwnerId = best.created_by;
-        parentStorageUrl = best.metadata?.storage_url;
+        parentStorageUrl = (best.metadata as { storage_url?: string })?.storage_url;
         console.log(`Media Guard: Similarity match found! Parent: ${parentId}, Distance: ${similarity}`);
       } else {
         console.log("Media Guard: No similar assets found within DINOv2 threshold.");
@@ -153,7 +153,7 @@ export async function guardImage(
                 parentId = row.id;
                 similarity = 0.05; // Treat as direct version
                 parentOwnerId = row.created_by as string | undefined;
-                parentStorageUrl = (row.metadata as any)?.storage_url;
+                parentStorageUrl = (row.metadata as { storage_url?: string })?.storage_url;
                 console.log(`Media Guard: pHash match found! Distance: ${distance}`);
                 break;
             }
@@ -181,10 +181,8 @@ export async function guardImage(
     // 0.1 to 0.5 is likely remix / clear derivative
     if (similarity < 0.1) {
       action = "direct_version";
-      attributionType = "version";
     } else {
       action = "remix";
-      attributionType = "remix";
     }
   }
 
@@ -192,7 +190,7 @@ export async function guardImage(
     action,
     asset: {
       ...asset,
-      storage_url: (asset.metadata as any)?.storage_url as string | undefined
+      storage_url: (asset.metadata as { storage_url?: string })?.storage_url
     },
     similarity,
     parent_id: parentId ?? undefined,
@@ -259,7 +257,7 @@ export async function guardAudio(
           parentId = row.id as string;
           similarity = score;
           parentOwnerId = row.created_by as string | undefined;
-          parentStorageUrl = (row.metadata as any)?.storage_url;
+          parentStorageUrl = (row.metadata as { storage_url?: string })?.storage_url;
         }
       }
       // Link if above sample threshold (15%)
@@ -293,7 +291,7 @@ export async function guardAudio(
     action,
     asset: {
       ...asset,
-      storage_url: (asset.metadata as any)?.storage_url as string | undefined
+      storage_url: (asset.metadata as { storage_url?: string })?.storage_url
     },
     similarity,
     parent_id: parentId ?? undefined,
@@ -358,11 +356,11 @@ export async function guardVideo(
       });
 
       if (matches && matches.length > 0) {
-        const best = matches[0] as { id: string; distance: number; created_by?: string; metadata?: any };
+        const best = matches[0] as { id: string; distance: number; created_by?: string; metadata?: { storage_url?: string } };
         parentId = best.id;
         similarity = best.distance;
         parentOwnerId = best.created_by;
-        parentStorageUrl = best.metadata?.storage_url;
+        parentStorageUrl = (best.metadata as { storage_url?: string })?.storage_url;
         console.log(`Media Guard: Video match found via frame DNA! Parent: ${parentId}, Distance: ${similarity}`);
       }
     }
@@ -383,7 +381,7 @@ export async function guardVideo(
             parentId = row.id;
             similarity = 0.05;
             parentOwnerId = row.created_by as string | undefined;
-            parentStorageUrl = (row.metadata as any)?.storage_url;
+            parentStorageUrl = (row.metadata as { storage_url?: string })?.storage_url;
             console.log(`Media Guard: Video match found via frame pHash! Distance: ${distance}`);
             break;
           }
@@ -395,7 +393,7 @@ export async function guardVideo(
   // 3. Insert new row
   const asset = await insertMediaAsset({
     sha256_hash: hash,
-    media_type: "video" as any,
+    media_type: "video",
     p_hash: framePHash, // Store the frame's pHash for future video-to-video matches
     audio_fingerprint: null,
     vibe_vector: frameVibeVector, // Store the frame's vibe vector
@@ -413,7 +411,7 @@ export async function guardVideo(
     action,
     asset: {
       ...asset,
-      storage_url: (asset.metadata as any)?.storage_url as string | undefined
+      storage_url: (asset.metadata as { storage_url?: string })?.storage_url
     },
     similarity,
     parent_id: parentId ?? undefined,

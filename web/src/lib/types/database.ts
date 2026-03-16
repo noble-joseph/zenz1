@@ -180,7 +180,7 @@ export interface DedupeCheckResult {
 export interface MediaAsset {
   id: string;
   sha256_hash: string;
-  media_type: "image" | "audio";
+  media_type: MediaType;
   p_hash: string | null;
   audio_fingerprint: string | null;
   vibe_vector: number[] | null;
