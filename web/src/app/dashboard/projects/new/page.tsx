@@ -164,7 +164,42 @@ export default function NewProjectPage() {
     return json.secure_url ?? json.url;
   }
 
-  // Upload Single File
+  // ---- Video Frame Extraction (Client-side) ----
+  async function extractVideoFrame(file: File): Promise<Blob | null> {
+    return new Promise((resolve) => {
+      const video = document.createElement("video");
+      const canvas = document.createElement("canvas");
+      const ctx = canvas.getContext("2d");
+      
+      video.preload = "metadata";
+      video.muted = true;
+      video.playsInline = true;
+      video.src = URL.createObjectURL(file);
+      
+      video.onloadedmetadata = () => {
+        video.currentTime = Math.min(1, video.duration / 2);
+      };
+      
+      video.onseeked = () => {
+        if (!ctx) return resolve(null);
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        
+        canvas.toBlob((blob) => {
+          URL.revokeObjectURL(video.src);
+          resolve(blob);
+        }, "image/jpeg", 0.8);
+      };
+      
+      video.onerror = () => {
+        URL.revokeObjectURL(video.src);
+        resolve(null);
+      };
+    });
+  }
+
+  // Upload Single File using Media Guard Pipeline
   const processAndUploadFile = async (
     file: File, 
     projectId: string, 
@@ -174,38 +209,74 @@ export default function NewProjectPage() {
     const hash = await sha256Hex(file);
     const mediaType: MediaType = detectMediaType(file.type);
     
-    // Dedup
-    const { data: existing } = await supabase.from("assets").select("hash_id, storage_url").eq("hash_id", hash).maybeSingle();
-    
-    let reused = false;
+    // 1. Prepare Media Guard Check
+    const mgForm = new FormData();
+    mgForm.append("hash", hash);
+
+    let videoFrame: Blob | null = null;
+    if (file.type.startsWith("video/")) {
+      videoFrame = await extractVideoFrame(file);
+      if (videoFrame) mgForm.append("frame", videoFrame, "frame.jpg");
+    }
+
+    // 2. Global Registry Pre-Check
     let storageUrl = "";
-    
-    if (existing) {
-      storageUrl = existing.storage_url;
-      reused = true;
-    } else {
+    let reused = false;
+    let p_hash = "";
+    let sha256_hash = hash;
+
+    try {
+      const preRes = await fetch("/api/media-guard", { method: "POST", body: mgForm });
+      if (preRes.ok) {
+        const preData = await preRes.json();
+        if (preData.action === "exact_match" && preData.asset?.storage_url) {
+          storageUrl = preData.asset.storage_url;
+          reused = true;
+          toast.info(`Media Guard: Exact match found for ${file.name}. Linking protection.`);
+        }
+      }
+    } catch (err) {
+      console.warn("Media Guard Pre-check failed, proceeding with fresh check:", err);
+    }
+
+    // 3. Upload if not reused
+    if (!reused) {
       storageUrl = await uploadToCloudinary(file, hash, mediaType);
       
-      const semanticContext = `Media Type: ${mediaType}. Filename: ${file.name}. Title: ${title}. Project tags: ${tags.join(", ")}`;
-      const embeddingRes = await getEmbeddingAction(semanticContext);
-      
-      const assetPayload: any = {
-        hash_id: hash,
-        storage_url: storageUrl,
-        media_type: mediaType,
-        metadata: { originalName: file.name, size: file.size, type: file.type },
-        created_by: userId,
-      };
-      
-      if (embeddingRes.ok && embeddingRes.vector && embeddingRes.vector.length > 0) {
-         assetPayload.embedding = embeddingRes.vector;
+      // Full Media Guard Guarding (Stage 2/3)
+      const fullMgForm = new FormData();
+      fullMgForm.append("file", file);
+      fullMgForm.append("storage_url", storageUrl);
+      if (videoFrame) fullMgForm.append("frame", videoFrame, "frame.jpg");
+
+      const mgRes = await fetch("/api/media-guard", { method: "POST", body: fullMgForm });
+      if (mgRes.ok) {
+        const mgData = await mgRes.json();
+        p_hash = mgData.asset?.p_hash || "";
+        
+        if (mgData.action === "remix") {
+          toast.warning(`REMIX DETECTED: ${file.name} is visually similar to an existing asset. Attribution linked.`);
+        } else if (mgData.action === "direct_version") {
+          toast.info(`VERSION DETECTED: ${file.name} is a direct version of an existing asset.`);
+        }
       }
-      
-      const { error: insErr } = await supabase.from("assets").insert(assetPayload);
-      if (insErr) throw insErr;
     }
+
+    // 4. Sync with local 'assets' table (for Project system)
+    const assetPayload = {
+      hash_id: hash,
+      storage_url: storageUrl,
+      media_type: mediaType,
+      metadata: { originalName: file.name, size: file.size, type: file.type },
+      created_by: userId,
+      p_hash: p_hash || null,
+      sha256_hash: sha256_hash
+    };
+
+    const { error: insErr } = await supabase.from("assets").upsert(assetPayload, { onConflict: "hash_id" });
+    if (insErr) throw insErr;
     
-    // Commit
+    // 5. Commit
     const { data: parentCommit } = await supabase.from("commits").select("id").eq("project_id", projectId).order("created_at", { ascending: false }).limit(1).maybeSingle();
     
     const { error: cmtErr } = await supabase.from("commits").insert({
