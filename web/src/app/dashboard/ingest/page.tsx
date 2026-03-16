@@ -261,26 +261,13 @@ export default function IngestPage() {
                 mgAction = mgData.action;
                 mgParentId = mgData.parent_id || null;
 
-                if (mgAction === "direct_version") {
-                  const isOtherUser = mgData.parent_owner_id && mgData.parent_owner_id !== user.id;
-                  if (isOtherUser) {
-                    toast.warning("SIMILAR CONTENT: This is likely a crop or version of another creator's asset.", { 
-                      description: "Formal attribution has been automatically linked.",
-                      duration: 8000 
-                    });
-                  } else {
-                    toast.success("VERSION TRACKED: This is a direct version/crop of your own asset.");
-                  }
-                } else if (mgAction === "remix") {
-                  const isOtherUser = mgData.parent_owner_id && mgData.parent_owner_id !== user.id;
-                  if (isOtherUser) {
-                    toast.info("REMIX DETECTED: This work is a remix of another creator's asset.", { 
-                      description: "Creator credits have been established in the lineage.",
-                      duration: 8000 
-                    });
-                  } else {
-                    toast.info("REMIX DETECTED: This is a derivative of your own asset.");
-                  }
+                if (mgAction === "direct_version" || mgAction === "remix" || mgAction === "exact_match") {
+                  const originalUrl = mgData.parent_storage_url || storageUrl;
+                  toast.error(`Upload Blocked: Similar content detected.`, {
+                    duration: 10000,
+                    action: { label: "View Original", onClick: () => window.open(originalUrl, "_blank") }
+                  });
+                  throw new Error(`Similarity Block: ${mgAction}`);
                 } else if (mgAction === "sample") {
                   toast.info("AUDIO SAMPLE TRACKED: Credits linked to the original audio source.");
                 } else if (mgAction === "new") {

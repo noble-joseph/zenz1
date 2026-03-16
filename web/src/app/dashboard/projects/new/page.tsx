@@ -254,11 +254,16 @@ export default function NewProjectPage() {
         const mgData = await mgRes.json();
         p_hash = mgData.asset?.p_hash || "";
         
-        if (mgData.action === "remix") {
-          toast.warning(`REMIX DETECTED: ${file.name} is visually similar to an existing asset. Attribution linked.`);
-        } else if (mgData.action === "direct_version") {
-          toast.info(`VERSION DETECTED: ${file.name} is a direct version of an existing asset.`);
+        if (mgData.action === "remix" || mgData.action === "direct_version" || mgData.action === "exact_match") {
+          const originalUrl = mgData.parent_storage_url || storageUrl;
+          toast.error(`Upload Blocked: Similar content detected.`, {
+            duration: 10000,
+            action: { label: "View Original", onClick: () => window.open(originalUrl, "_blank") }
+          });
+          throw new Error(`Similarity Block: ${mgData.action}`);
         }
+      } else {
+        throw new Error("Media Guard DNA Check Failed.");
       }
     }
 

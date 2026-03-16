@@ -161,30 +161,37 @@ export async function guardImage(
     }
   }
 
-  // 5. Insert new row
+  let action: GuardResult["action"] = "new";
+
+  if (parentId && similarity !== undefined) {
+    if (similarity < 0.1) {
+      action = "direct_version";
+    } else {
+      action = "remix";
+    }
+
+    // Similarity found! Return early without inserting new asset to BLOCK upload strictly.
+    return {
+      action,
+      asset: null as any, // No new asset created
+      similarity,
+      parent_id: parentId,
+      parent_owner_id: parentOwnerId,
+      parent_storage_url: parentStorageUrl,
+    };
+  }
+
+  // 5. Insert new row only if no similarity found
   const asset = await insertMediaAsset({
     sha256_hash: hash,
     media_type: "image",
     p_hash: pHash,
     audio_fingerprint: null,
     vibe_vector: vibeVector,
-    parent_id: parentId,
+    parent_id: null,
     created_by: userId ?? null,
     metadata: { ...metadata, storage_url: storageUrl },
   });
-
-  let action: GuardResult["action"] = "new";
-
-
-  if (parentId && similarity !== undefined) {
-    // 0.0 is perfect match, < 0.1 is likely crop/resolution change (Direct Version)
-    // 0.1 to 0.5 is likely remix / clear derivative
-    if (similarity < 0.1) {
-      action = "direct_version";
-    } else {
-      action = "remix";
-    }
-  }
 
   return {
     action,
@@ -270,6 +277,20 @@ export async function guardAudio(
     }
   }
 
+  let action: GuardResult["action"] = "new";
+  if (parentId && similarity !== undefined) {
+    action = similarity >= JACCARD_THRESHOLD ? "exact_match" : "sample";
+    
+    return {
+      action,
+      asset: null as any,
+      similarity,
+      parent_id: parentId,
+      parent_owner_id: parentOwnerId,
+      parent_storage_url: parentStorageUrl,
+    };
+  }
+
   // 4. Insert new row
   const asset = await insertMediaAsset({
     sha256_hash: hash,
@@ -277,15 +298,10 @@ export async function guardAudio(
     p_hash: null,
     audio_fingerprint: audioFingerprint,
     vibe_vector: null,
-    parent_id: parentId,
+    parent_id: null,
     created_by: userId ?? null,
     metadata: { ...metadata, storage_url: storageUrl },
   });
-
-  let action: GuardResult["action"] = "new";
-  if (parentId && similarity !== undefined) {
-    action = similarity >= JACCARD_THRESHOLD ? "exact_match" : "sample";
-  }
 
   return {
     action,
