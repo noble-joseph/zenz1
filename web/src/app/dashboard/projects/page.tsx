@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { Image as ImageIcon, Film, Music, FileText, File, ExternalLink, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
@@ -31,7 +32,7 @@ export default function ProjectsPage() {
 
   useEffect(() => {
     void load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, []);
 
 // Create logic moved to /dashboard/projects/new

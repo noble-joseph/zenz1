@@ -1,13 +1,13 @@
 "use client";
 
-import { useState, useCallback, useEffect, type ChangeEvent } from "react";
+import { useState, useEffect, type ChangeEvent } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Loader2, Plus, X, Wand2 } from "lucide-react";
 
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { sha256Hex, detectMediaType } from "@/lib/hashing";
-import { getEmbeddingAction } from "@/app/actions/embeddings";
+import { getEmbeddingAction as _getEmbeddingAction } from "@/app/actions/embeddings";
 import { generateProjectMetadataAction } from "@/app/actions/ai";
 import type { MediaType } from "@/lib/types/database";
 
@@ -124,7 +124,7 @@ export default function NewProjectPage() {
       } else {
         toast.error("Failed to generate metadata.", { id: toastId });
       }
-    } catch (err) {
+    } catch (_err) {
       toast.error("Something went wrong.", { id: toastId });
     } finally {
       setBusy(false);
@@ -203,7 +203,7 @@ export default function NewProjectPage() {
   const processAndUploadFile = async (
     file: File, 
     projectId: string, 
-    supabase: any,
+    supabase: any, // eslint-disable-line @typescript-eslint/no-explicit-any
     commitMessage: string
   ): Promise<void> => {
     const hash = await sha256Hex(file);
@@ -223,7 +223,7 @@ export default function NewProjectPage() {
     let storageUrl = "";
     let reused = false;
     let p_hash = "";
-    let sha256_hash = hash;
+    const sha256_hash = hash;
 
     try {
       const preRes = await fetch("/api/media-guard", { method: "POST", body: mgForm });
@@ -379,9 +379,9 @@ export default function NewProjectPage() {
       toast.success("Project published successfully!", { id: t });
       router.push(`/dashboard/projects`);
       
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
-      toast.error(err.message || "Failed to create project", { id: t });
+      toast.error(err instanceof Error ? err.message : "Failed to create project", { id: t });
     } finally {
       setBusy(false);
     }

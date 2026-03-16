@@ -312,6 +312,8 @@ export async function guardVideo(
   userId?: string | null,
   metadata: AssetMetadata = {},
   storageUrl?: string,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  _frameBuffer?: Buffer | null,
 ): Promise<GuardResult> {
   // 1. SHA-256 exact match check
   const hash = sha256(videoBuffer);
