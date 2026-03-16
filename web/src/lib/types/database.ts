@@ -195,4 +195,6 @@ export interface GuardResult {
   asset: MediaAsset & { storage_url?: string }; // Include storage_url for easier access
   similarity?: number;
   parent_id?: string;
+  parent_owner_id?: string;
+  parent_storage_url?: string;
 }

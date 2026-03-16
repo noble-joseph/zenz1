@@ -101,6 +101,8 @@ export async function guardImage(
   // 4. Similarity search via RPC
   let parentId: string | null = null;
   let similarity: number | undefined;
+  let parentOwnerId: string | undefined;
+  let parentStorageUrl: string | undefined;
 
   if (vibeVector) {
     if (vibeVector.length === 768) {
@@ -116,9 +118,11 @@ export async function guardImage(
       }
 
       if (matches && matches.length > 0) {
-        const best = matches[0] as { id: string; distance: number };
+        const best = matches[0] as { id: string; distance: number; created_by?: string; metadata?: any };
         parentId = best.id;
         similarity = best.distance;
+        parentOwnerId = best.created_by;
+        parentStorageUrl = best.metadata?.storage_url;
         console.log(`Media Guard: Similarity match found! Parent: ${parentId}, Distance: ${similarity}`);
       } else {
         console.log("Media Guard: No similar assets found within threshold.");
@@ -155,6 +159,8 @@ export async function guardImage(
     },
     similarity,
     parent_id: parentId ?? undefined,
+    parent_owner_id: parentOwnerId,
+    parent_storage_url: parentStorageUrl,
   };
 }
 
@@ -195,12 +201,14 @@ export async function guardAudio(
   // 3. Jaccard similarity check against existing audio assets
   let parentId: string | null = null;
   let similarity: number | undefined;
+  let parentOwnerId: string | undefined;
+  let parentStorageUrl: string | undefined;
 
   if (audioFingerprint) {
     const supabase = createSupabaseAdminClient();
     const { data: audioAssets } = await supabase
       .from("media_assets")
-      .select("id, audio_fingerprint")
+      .select("id, audio_fingerprint, created_by, metadata")
       .eq("media_type", "audio")
       .not("audio_fingerprint", "is", null);
 
@@ -213,12 +221,16 @@ export async function guardAudio(
           bestScore = score;
           parentId = row.id as string;
           similarity = score;
+          parentOwnerId = row.created_by as string | undefined;
+          parentStorageUrl = (row.metadata as any)?.storage_url;
         }
       }
       // Link if above sample threshold (15%)
       if (bestScore < SAMPLE_THRESHOLD) {
         parentId = null;
         similarity = undefined;
+        parentOwnerId = undefined;
+        parentStorageUrl = undefined;
       }
     }
   }
@@ -248,5 +260,7 @@ export async function guardAudio(
     },
     similarity,
     parent_id: parentId ?? undefined,
+    parent_owner_id: parentOwnerId,
+    parent_storage_url: parentStorageUrl,
   };
 }

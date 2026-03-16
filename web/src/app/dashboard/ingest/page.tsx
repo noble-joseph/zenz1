@@ -114,6 +114,11 @@ export default function IngestPage() {
         throw new Error("Invalid Project ID format. It should be a standard UUID.");
       }
 
+      // Pre-fetch user for Media Guard identity checks
+      const { data: { user }, error: userErr } = await supabase.auth.getUser();
+      if (userErr) throw userErr;
+      if (!user) throw new Error("Not signed in.");
+
       // Step 1: SHA-256 hash (binary integrity)
       const hash = await sha256Hex(file);
       const mediaType: MediaType = detectMediaType(file.type);
@@ -200,9 +205,19 @@ export default function IngestPage() {
                 mgParentId = mgData.parent_id || null;
 
                 if (mgAction === "direct_version") {
-                  toast.success("Media Guard: Direct version linked to parent asset.");
+                  const isOtherUser = mgData.parent_owner_id && mgData.parent_owner_id !== user.id;
+                  if (isOtherUser) {
+                    toast.warning("Media Guard: This image is a crop/version of an asset owned by another user.", { duration: 6000 });
+                  } else {
+                    toast.success("Media Guard: Direct version linked to your parent asset.");
+                  }
                 } else if (mgAction === "remix") {
-                  toast.info("Media Guard: Remix detected! Attribution linked.");
+                  const isOtherUser = mgData.parent_owner_id && mgData.parent_owner_id !== user.id;
+                  if (isOtherUser) {
+                    toast.info("Media Guard: Remix of another creator's work detected. Attribution linked.", { duration: 6000 });
+                  } else {
+                    toast.info("Media Guard: Remix of your own asset detected.");
+                  }
                 } else if (mgAction === "sample") {
                   toast.info("Media Guard: Audio sample detected! Credits linked.");
                 } else if (mgAction === "new") {
@@ -254,13 +269,7 @@ export default function IngestPage() {
         if (insertAssetError) throw insertAssetError;
       }
 
-      // Step 3: Get current user
-      const {
-        data: { user },
-        error: userErr,
-      } = await supabase.auth.getUser();
-      if (userErr) throw userErr;
-      if (!user) throw new Error("Not signed in.");
+      // Step 3: Get current user — already fetched at start of ingestFile
 
       // Step 4: Find parent commit (latest in this project)
       const { data: parentCommit } = await supabase
