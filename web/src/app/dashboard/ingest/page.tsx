@@ -309,9 +309,13 @@ export default function IngestPage() {
 
   // ---- File Input Handlers ----
 
-  function onPickFile(e: ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (file) void ingestFile(file);
+  function onPickFiles(e: ChangeEvent<HTMLInputElement>) {
+    const files = e.target.files;
+    if (files && files.length > 0) {
+      for (let i = 0; i < files.length; i++) {
+        void ingestFile(files[i]);
+      }
+    }
     e.target.value = "";
   }
 
@@ -329,8 +333,12 @@ export default function IngestPage() {
       e.preventDefault();
       e.stopPropagation();
       setDragActive(false);
-      const file = e.dataTransfer.files?.[0];
-      if (file) void ingestFile(file);
+      const files = e.dataTransfer.files;
+      if (files && files.length > 0) {
+        for (let i = 0; i < files.length; i++) {
+          void ingestFile(files[i]);
+        }
+      }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [projectId, commitMessage],
@@ -412,7 +420,7 @@ export default function IngestPage() {
             />
           </svg>
           <p className="text-sm font-medium">
-            {busy ? "Processing…" : "Drop a file here or click to browse"}
+            {busy ? "Processing…" : "Drop files here or click to browse"}
           </p>
           <p className="mt-1 text-xs text-zinc-500">
             Supports images, videos, audio, and documents.
@@ -423,7 +431,8 @@ export default function IngestPage() {
           id="ingest-file-input"
           className="hidden"
           type="file"
-          onChange={onPickFile}
+          multiple
+          onChange={onPickFiles}
           disabled={busy}
         />
       </div>

@@ -67,8 +67,8 @@ export default function FeedPage() {
               public_slug: a.profiles?.public_slug || "",
             },
             stats: {
-              likes: Math.floor(Math.random() * 100), // Placeholder
-              credits: Math.floor(Math.random() * 50), // Placeholder
+              likes: 0, 
+              credits: 0,
             },
           }));
           setItems(feedItems);

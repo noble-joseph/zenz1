@@ -23,7 +23,7 @@ import {
 let cachedModel: PreTrainedModel | null = null;
 let cachedProcessor: ReturnType<typeof AutoImageProcessor.from_pretrained> | null = null;
 
-const MODEL_ID = "Xenova/dinov2-small";
+const MODEL_ID = "Xenova/dinov2-base";
 
 async function getModel(): Promise<PreTrainedModel> {
   if (!cachedModel) {

@@ -40,6 +40,7 @@ import { SectionNav } from "@/components/section-nav";
 import { ShareButton } from "@/components/share-button";
 import { AvailabilityBadge } from "@/components/availability-badge";
 import { ProfileConnectionActions } from "@/components/profile-connection-actions";
+import { PublicInquiryForm } from "@/components/public-inquiry-form";
 import type { Profile, Project, Collaboration } from "@/lib/types/database";
 
 interface PageProps {
@@ -431,14 +432,7 @@ export default async function PublicProfilePage(props: PageProps) {
                 
                 <div className="bg-white/5 backdrop-blur-sm rounded-2xl p-6 border border-white/10">
                   <h3 className="text-xl font-bold mb-6">Quick Inquiry</h3>
-                  <div className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
-                      <Input placeholder="Your Name" className="bg-white/5 border-white/10 text-white" />
-                      <Input placeholder="Your Email" className="bg-white/5 border-white/10 text-white" />
-                    </div>
-                    <Textarea placeholder="Tell me about your project..." className="bg-white/5 border-white/10 text-white" rows={4} />
-                    <Button className="w-full bg-white text-black hover:bg-zinc-200">Send Inquiry</Button>
-                  </div>
+                  <PublicInquiryForm creatorId={profile.id} />
                 </div>
               </div>
               <div className="absolute -bottom-24 -right-24 h-96 w-96 bg-emerald-600/20 blur-[100px] rounded-full pointer-events-none" />

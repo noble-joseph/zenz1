@@ -101,25 +101,29 @@ export async function guardImage(
   let parentId: string | null = null;
   let similarity: number | undefined;
 
-  if (vibeVector && vibeVector.length === 768) {
-    const supabase = createSupabaseAdminClient();
-    const { data: matches, error: rpcError } = await supabase.rpc("search_similar_media", {
-      query_vector: vibeVector,
-      threshold: SIMILARITY_THRESHOLD,
-      result_limit: 1,
-    });
+  if (vibeVector) {
+    if (vibeVector.length === 768) {
+      const supabase = createSupabaseAdminClient();
+      const { data: matches, error: rpcError } = await supabase.rpc("search_similar_media", {
+        query_vector: vibeVector,
+        threshold: SIMILARITY_THRESHOLD,
+        result_limit: 1,
+      });
 
-    if (rpcError) {
-      console.error("Media Guard: RPC Similarity search failed:", rpcError);
-    }
+      if (rpcError) {
+        console.error("Media Guard: RPC Similarity search failed:", rpcError);
+      }
 
-    if (matches && matches.length > 0) {
-      const best = matches[0] as { id: string; distance: number };
-      parentId = best.id;
-      similarity = best.distance;
-      console.log(`Media Guard: Similarity match found! Parent: ${parentId}, Distance: ${similarity}`);
+      if (matches && matches.length > 0) {
+        const best = matches[0] as { id: string; distance: number };
+        parentId = best.id;
+        similarity = best.distance;
+        console.log(`Media Guard: Similarity match found! Parent: ${parentId}, Distance: ${similarity}`);
+      } else {
+        console.log("Media Guard: No similar assets found within threshold.");
+      }
     } else {
-      console.log("Media Guard: No similar assets found within threshold.");
+      console.warn(`Media Guard: vibeVector dimension mismatch. Expected 768, got ${vibeVector.length}`);
     }
   }
 
@@ -140,6 +144,8 @@ export async function guardImage(
 
   let action: GuardResult["action"] = "new";
   if (parentId && similarity !== undefined) {
+    // 0.0 is perfect match, < 0.1 is likely crop/resolution change (Direct Version)
+    // 0.1 to 0.5 is likely remix / clear derivative
     action = similarity < 0.1 ? "direct_version" : "remix";
   }
 
