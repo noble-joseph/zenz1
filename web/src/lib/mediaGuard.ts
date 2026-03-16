@@ -9,7 +9,7 @@
  */
 
 import { createHash } from "node:crypto";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createSupabaseServerClient, createSupabaseAdminClient } from "@/lib/supabase/server";
 import { computePHash } from "@/lib/phash";
 import { generateVibeVector } from "@/lib/vibeVector";
 import {
@@ -30,8 +30,8 @@ function sha256(buffer: Buffer): string {
  * Check if a media asset with this exact hash already exists.
  */
 export async function findExactMatch(hash: string): Promise<(MediaAsset & { storage_url?: string }) | null> {
-  const supabase = await createSupabaseServerClient();
-  const { data } = await supabase
+  const supabase = createSupabaseAdminClient();
+  const { data, error } = await supabase
     .from("media_assets")
     .select("*")
     .eq("sha256_hash", hash)
@@ -52,7 +52,7 @@ export async function findExactMatch(hash: string): Promise<(MediaAsset & { stor
 async function insertMediaAsset(
   row: Omit<MediaAsset, "id" | "created_at">,
 ): Promise<MediaAsset> {
-  const supabase = await createSupabaseServerClient();
+  const supabase = createSupabaseAdminClient();
   const { data, error } = await supabase
     .from("media_assets")
     .insert(row)
@@ -102,7 +102,7 @@ export async function guardImage(
   let similarity: number | undefined;
 
   if (vibeVector && vibeVector.length === 768) {
-    const supabase = await createSupabaseServerClient();
+    const supabase = createSupabaseAdminClient();
     const { data: matches, error: rpcError } = await supabase.rpc("search_similar_media", {
       query_vector: vibeVector,
       threshold: SIMILARITY_THRESHOLD,
@@ -124,8 +124,8 @@ export async function guardImage(
   }
 
   // 5. Insert new row
-  const supabase = await createSupabaseServerClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const serverSupabase = await createSupabaseServerClient();
+  const { data: { user } } = await serverSupabase.auth.getUser();
 
   const asset = await insertMediaAsset({
     sha256_hash: hash,
@@ -192,7 +192,7 @@ export async function guardAudio(
   let similarity: number | undefined;
 
   if (audioFingerprint) {
-    const supabase = await createSupabaseServerClient();
+    const supabase = createSupabaseAdminClient();
     const { data: audioAssets } = await supabase
       .from("media_assets")
       .select("id, audio_fingerprint")
@@ -219,8 +219,8 @@ export async function guardAudio(
   }
 
   // 4. Insert new row
-  const supabase = await createSupabaseServerClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const serverSupabase = await createSupabaseServerClient();
+  const { data: { user } } = await serverSupabase.auth.getUser();
 
   const asset = await insertMediaAsset({
     sha256_hash: hash,

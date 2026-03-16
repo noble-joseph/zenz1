@@ -1,4 +1,4 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenerativeAI, TaskType } from "@google/generative-ai";
 
 /**
  * Generates an embedding for a piece of text.
@@ -14,8 +14,12 @@ export async function generateEmbedding(text: string): Promise<number[]> {
 
   try {
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: "gemini-embedding-001" });
-    const result = await model.embedContent(text);
+    const model = genAI.getGenerativeModel({ model: "text-embedding-004" });
+    const result = await model.embedContent({
+      content: { parts: [{ text }], role: "user" },
+      taskType: TaskType.RETRIEVAL_DOCUMENT,
+      outputDimensionality: 1536
+    } as any);
     const embedding = result.embedding.values;
     
     return embedding;

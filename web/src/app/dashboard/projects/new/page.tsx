@@ -242,18 +242,35 @@ export default function NewProjectPage() {
       if (!supabase) throw new Error("Missing Supabase client");
 
       // 1. Create Project
-      const slug = title.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+      let finalSlug = title.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
       
-      const { data: pData, error: pErr } = await supabase.from("projects").insert({
+      let { data: pData, error: pErr } = await supabase.from("projects").insert({
         owner_id: userId,
         title: title.trim(),
-        slug: slug || null,
+        slug: finalSlug || null,
         description: description.trim() || null,
         is_public: isPublic,
         tags: tags,
       }).select("id").single();
       
+      if (pErr && pErr.code === "23505") {
+        // Handle duplicate key: add random suffix
+        const suffix = Math.random().toString(36).substring(2, 6);
+        finalSlug = `${finalSlug}-${suffix}`;
+        const retry = await supabase.from("projects").insert({
+          owner_id: userId,
+          title: title.trim(),
+          slug: finalSlug,
+          description: description.trim() || null,
+          is_public: isPublic,
+          tags: tags,
+        }).select("id").single();
+        pData = retry.data;
+        pErr = retry.error;
+      }
+
       if (pErr) throw pErr;
+      if (!pData) throw new Error("Failed to create project: No data returned.");
       const projectId = pData.id;
 
       // 2. Upload Files

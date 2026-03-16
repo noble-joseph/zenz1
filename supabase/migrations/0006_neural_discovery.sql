@@ -5,7 +5,7 @@
 
 -- 1. Add vector column to profiles (768 dimensions for gemini-embedding-001)
 alter table public.profiles
-add column if not exists embedding vector(768);
+add column if not exists embedding vector(1536);
 
 -- 2. Add an index for faster similarity search
 create index if not exists idx_profiles_embedding 
@@ -16,7 +16,7 @@ create index if not exists idx_profiles_embedding
 -- 3. Create RPC matching function for creators
 -- Excludes the requester and already connected creators (collaborators)
 create or replace function public.match_creators(
-  query_embedding vector(768),
+  query_embedding vector(1536),
   match_threshold float,
   match_count int,
   excluded_id uuid,
