@@ -5,12 +5,8 @@ import {
   Save, 
   User, 
   Palette, 
-  Shield, 
-  Bell, 
   Zap, 
   Sparkles,
-  Command,
-  Monitor,
   Moon,
   Sun,
   Laptop,
@@ -39,8 +35,9 @@ import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
 
 export default function SettingsPage() {
   const [profile, setProfile] = useState<any>(null);
@@ -69,7 +66,7 @@ export default function SettingsPage() {
 
       if (error) throw error;
       setProfile(data);
-    } catch (err) {
+    } catch {
       toast.error("Failed to load settings");
     } finally {
       setLoading(false);
@@ -148,9 +145,9 @@ export default function SettingsPage() {
 
       if (error) throw error;
       toast.success("Profile updated successfully");
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Save Error:", err);
-      toast.error(err.message || "Failed to save settings");
+      toast.error(err instanceof Error ? err.message : "Failed to save settings");
     } finally {
       setBusy(false);
     }

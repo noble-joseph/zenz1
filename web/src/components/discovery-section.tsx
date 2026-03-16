@@ -31,8 +31,6 @@ import { getOptimizedCloudinaryUrl } from "@/lib/cloudinary";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import type { Asset, Profile } from "@/lib/types/database";
 
-// Creator type alias for match_creators RPC results
-type Creator = Profile;
 
 export interface AssetWithProfile extends Asset {
   profiles?: {
