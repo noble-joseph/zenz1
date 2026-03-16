@@ -263,7 +263,9 @@ export default function NewProjectPage() {
           throw new Error(`Similarity Block: ${mgData.action}`);
         }
       } else {
-        throw new Error("Media Guard DNA Check Failed.");
+        const errData = await mgRes.json().catch(() => ({}));
+        console.error("Media Guard API Error Details:", errData);
+        throw new Error(`Media Guard DNA Check Failed: ${errData.details || mgRes.statusText}`);
       }
     }
 

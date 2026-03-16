@@ -60,6 +60,11 @@ async function insertMediaAsset(
     .single();
 
   if (error || !data) {
+    if (error?.code === "23505") { // 23505 is PostgreSQL unique constraint violation
+      // Rare race condition: another request just inserted this exact hash!
+      const existing = await findExactMatch(row.sha256_hash);
+      if (existing) return existing as MediaAsset;
+    }
     throw new Error(`Failed to insert media_asset: ${error?.message ?? "unknown"}`);
   }
   return data as MediaAsset;
