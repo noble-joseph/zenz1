@@ -5,9 +5,7 @@ import {
   Linkedin, 
   Music, 
   ExternalLink,
-  Github,
-  Film,
-  Camera
+  Film
 } from "lucide-react";
 import Link from "next/link";
 import { type SocialLinks } from "@/lib/types/database";

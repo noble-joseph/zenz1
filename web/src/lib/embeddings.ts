@@ -19,7 +19,7 @@ export async function generateEmbedding(text: string): Promise<number[]> {
       content: { parts: [{ text }], role: "user" },
       taskType: TaskType.RETRIEVAL_DOCUMENT,
       outputDimensionality: 1536
-    } as any);
+    } as import("@google/generative-ai").EmbedContentRequest & { outputDimensionality: number });
     const embedding = result.embedding.values;
     
     return embedding;

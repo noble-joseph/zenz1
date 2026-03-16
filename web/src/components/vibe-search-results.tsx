@@ -16,7 +16,7 @@ export async function VibeSearchResults({ query }: { query: string }) {
   let vector: number[] = [];
   try {
     vector = await generateEmbedding(query);
-  } catch (_err) {
+  } catch {
     return (
       <div className="py-12 text-center text-red-500">
         Failed to analyze search query. Ensure GOOGLE_GENERATIVE_AI_API_KEY is configured.
@@ -105,8 +105,8 @@ export async function VibeSearchResults({ query }: { query: string }) {
              Matching Works
           </div>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {results.map((asset: { hash_id: string; metadata: any; similarity: number; media_type: string; storage_url: string | null }) => {
-              const meta = asset.metadata || {};
+            {results.map((asset: { hash_id: string; metadata: import("@/lib/types/database").AssetMetadata; similarity: number; media_type: string; storage_url: string | null }) => {
+              const meta = (asset.metadata || {}) as import("@/lib/types/database").AssetMetadata;
               const score = Math.round(asset.similarity * 100);
 
               return (

@@ -312,7 +312,6 @@ export async function guardVideo(
   userId?: string | null,
   metadata: AssetMetadata = {},
   storageUrl?: string,
-  frameBuffer?: Buffer | null,
 ): Promise<GuardResult> {
   // 1. SHA-256 exact match check
   const hash = sha256(videoBuffer);

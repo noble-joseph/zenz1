@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Camera, Music, Video, User, Briefcase, Trophy, Sparkles, Upload } from "lucide-react";
+import { Music, Video, User, Briefcase, Trophy, Sparkles, Upload } from "lucide-react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
