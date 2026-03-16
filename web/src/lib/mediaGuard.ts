@@ -71,6 +71,7 @@ const SIMILARITY_THRESHOLD = 0.3; // Allow up to Remix range
 
 export async function guardImage(
   imageBuffer: Buffer,
+  userId?: string | null,
   metadata: AssetMetadata = {},
   storageUrl?: string,
 ): Promise<GuardResult> {
@@ -128,9 +129,6 @@ export async function guardImage(
   }
 
   // 5. Insert new row
-  const serverSupabase = await createSupabaseServerClient();
-  const { data: { user } } = await serverSupabase.auth.getUser();
-
   const asset = await insertMediaAsset({
     sha256_hash: hash,
     media_type: "image",
@@ -138,7 +136,7 @@ export async function guardImage(
     audio_fingerprint: null,
     vibe_vector: vibeVector,
     parent_id: parentId,
-    created_by: user?.id ?? null,
+    created_by: userId ?? null,
     metadata: { ...metadata, storage_url: storageUrl },
   });
 
@@ -167,6 +165,7 @@ const SAMPLE_THRESHOLD = 0.15; // Partial overlap (Stage 2 requirements)
 
 export async function guardAudio(
   audioBuffer: Buffer,
+  userId?: string | null,
   metadata: AssetMetadata = {},
   fileExtension = "mp3",
   storageUrl?: string,
@@ -225,9 +224,6 @@ export async function guardAudio(
   }
 
   // 4. Insert new row
-  const serverSupabase = await createSupabaseServerClient();
-  const { data: { user } } = await serverSupabase.auth.getUser();
-
   const asset = await insertMediaAsset({
     sha256_hash: hash,
     media_type: "audio",
@@ -235,7 +231,7 @@ export async function guardAudio(
     audio_fingerprint: audioFingerprint,
     vibe_vector: null,
     parent_id: parentId,
-    created_by: user?.id ?? null,
+    created_by: userId ?? null,
     metadata: { ...metadata, storage_url: storageUrl },
   });
 

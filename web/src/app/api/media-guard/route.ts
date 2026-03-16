@@ -65,10 +65,10 @@ export async function POST(req: NextRequest) {
     let result;
 
     if (mimeType.startsWith("image/")) {
-      result = await guardImage(buffer, metadata, storageUrl);
+      result = await guardImage(buffer, user.id, metadata, storageUrl);
     } else if (mimeType.startsWith("audio/")) {
       const ext = file.name.split(".").pop() ?? "mp3";
-      result = await guardAudio(buffer, metadata, ext, storageUrl);
+      result = await guardAudio(buffer, user.id, metadata, ext, storageUrl);
     } else {
       return NextResponse.json(
         {
