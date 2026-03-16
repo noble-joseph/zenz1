@@ -1,6 +1,6 @@
 "use client";
 
-import { Share2, Check, Copy } from "lucide-react";
+import { Share2, Check } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -15,7 +15,7 @@ export function ShareButton({ slug, label = "Share Portfolio" }: { slug: string;
       setCopied(true);
       toast.success("Portfolio link copied to clipboard");
       setTimeout(() => setCopied(false), 2000);
-    } catch (err) {
+    } catch {
       toast.error("Failed to copy link");
     }
   };

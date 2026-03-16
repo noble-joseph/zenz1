@@ -2,11 +2,16 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Music, Video, User, Briefcase, Trophy, Sparkles, Upload } from "lucide-react";
+import { Music, Video, User, Sparkles, Upload } from "lucide-react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+
+function AvatarPreview({ src }: { src: string }) {
+  // eslint-disable-next-line @next/next/no-img-element
+  return <img src={src} className="h-full w-full object-cover" alt="Preview" />;
+}
 
 const PROFESSIONS = [
   { id: "cinematographer", label: "Cinematographer", icon: Video },
@@ -79,8 +84,8 @@ export default function OnboardingPage() {
 
       if (error) throw error;
       router.push("/dashboard");
-    } catch (err: any) {
-      alert(err.message || "Failed to update profile");
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : "Failed to update profile");
     } finally {
       setLoading(false);
     }
@@ -105,7 +110,7 @@ export default function OnboardingPage() {
                <div className="relative group">
                   <div className="h-28 w-28 lg:h-32 lg:w-32 rounded-full border-4 border-white dark:border-zinc-800 bg-zinc-100 dark:bg-zinc-800 overflow-hidden shadow-inner">
                      {avatarPreview ? (
-                        <img src={avatarPreview} className="h-full w-full object-cover" alt="Preview" />
+                        <AvatarPreview src={avatarPreview} />
                      ) : (
                         <div className="h-full w-full flex items-center justify-center text-zinc-400">
                            <User className="h-10 w-10 lg:h-12 lg:w-12" />

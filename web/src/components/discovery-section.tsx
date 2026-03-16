@@ -7,7 +7,7 @@ import {
   Music, 
   Filter, 
   Sparkles, 
-  ArrowRight, 
+
   Users, 
   UserPlus, 
   MessageSquare,
@@ -25,15 +25,14 @@ import {
   TabsContent
 } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
+
 import { Card, CardContent } from "@/components/ui/card";
 import { getOptimizedCloudinaryUrl } from "@/lib/cloudinary";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import type { Asset, Profile } from "@/lib/types/database";
 
-interface Creator extends Profile {
-  // Add any extra fields returned by match_creators RPC if needed
-}
+// Creator type alias for match_creators RPC results
+type Creator = Profile;
 
 export interface AssetWithProfile extends Asset {
   profiles?: {
@@ -220,15 +219,15 @@ export function DiscoverySection({ initialAssets, initialCreators }: DiscoverySe
           </TabsContent>
 
           <TabsContent value="all" className="mt-0">
-            <AssetGrid assets={filteredAssets} initialCount={initialAssets.length} />
+            <AssetGrid assets={filteredAssets} />
           </TabsContent>
           
           <TabsContent value="cinematography" className="mt-0">
-            <AssetGrid assets={filteredAssets} initialCount={initialAssets.length} />
+            <AssetGrid assets={filteredAssets} />
           </TabsContent>
 
           <TabsContent value="music" className="mt-0">
-            <AssetGrid assets={filteredAssets} initialCount={initialAssets.length} />
+            <AssetGrid assets={filteredAssets} />
           </TabsContent>
         </Tabs>
       </div>
@@ -236,7 +235,7 @@ export function DiscoverySection({ initialAssets, initialCreators }: DiscoverySe
   );
 }
 
-function AssetGrid({ assets, initialCount }: { assets: AssetWithProfile[], initialCount: number }) {
+function AssetGrid({ assets }: { assets: AssetWithProfile[] }) {
   if (assets.length === 0) {
     return (
       <div className="col-span-full py-20 text-center border-2 border-dashed rounded-3xl">
