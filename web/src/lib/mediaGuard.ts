@@ -174,7 +174,7 @@ export async function guardImage(
   });
 
   let action: GuardResult["action"] = "new";
-  let attributionType: string = "remix";
+
 
   if (parentId && similarity !== undefined) {
     // 0.0 is perfect match, < 0.1 is likely crop/resolution change (Direct Version)
@@ -321,91 +321,22 @@ export async function guardVideo(
     return { action: "exact_match", asset: existing, similarity: 0 };
   }
 
-  // 2. Client-side Frame DNA Check (if available)
-  let parentId: string | null = null;
-  let similarity: number | undefined;
-  let parentOwnerId: string | undefined;
-  let parentStorageUrl: string | undefined;
-  let framePHash: string | null = null;
-  let frameVibeVector: number[] | null = null;
+    // Simplified Video Guard: SHA-256 match only as per user feedback
+    // Keyframe extraction logic removed to reduce complexity/overhead
 
-  if (frameBuffer) {
-    console.log("Media Guard: Analyzing video frame for semantic DNA...");
-    
-    // Compute pHash for frame
-    try {
-      framePHash = await computePHash(frameBuffer);
-    } catch (err) {
-      console.warn("Media Guard: Video frame pHash failed:", err);
-    }
 
-    // Generate Vibe Vector for frame
-    try {
-      frameVibeVector = await generateVibeVector(frameBuffer);
-    } catch (err) {
-      console.warn("Media Guard: Video frame vibe vector failed:", err);
-    }
-
-    // Similarity Search for frame
-    if (frameVibeVector && frameVibeVector.length === 768) {
-      const supabase = createSupabaseAdminClient();
-      const { data: matches } = await supabase.rpc("search_similar_media", {
-        query_vector: frameVibeVector,
-        threshold: SIMILARITY_THRESHOLD,
-        result_limit: 1,
-      });
-
-      if (matches && matches.length > 0) {
-        const best = matches[0] as { id: string; distance: number; created_by?: string; metadata?: { storage_url?: string } };
-        parentId = best.id;
-        similarity = best.distance;
-        parentOwnerId = best.created_by;
-        parentStorageUrl = (best.metadata as { storage_url?: string })?.storage_url;
-        console.log(`Media Guard: Video match found via frame DNA! Parent: ${parentId}, Distance: ${similarity}`);
-      }
-    }
-
-    // Fallback pHash for frame
-    if (!parentId && framePHash) {
-      const supabase = createSupabaseAdminClient();
-      const { data: pHashMatches } = await supabase
-        .from("media_assets")
-        .select("id, p_hash, created_by, metadata")
-        .eq("media_type", "image")
-        .not("p_hash", "is", null);
-
-      if (pHashMatches) {
-        for (const row of pHashMatches) {
-          const distance = hammingDistance(framePHash, row.p_hash as string);
-          if (distance <= PHASH_THRESHOLD) {
-            parentId = row.id;
-            similarity = 0.05;
-            parentOwnerId = row.created_by as string | undefined;
-            parentStorageUrl = (row.metadata as { storage_url?: string })?.storage_url;
-            console.log(`Media Guard: Video match found via frame pHash! Distance: ${distance}`);
-            break;
-          }
-        }
-      }
-    }
-  }
-
-  // 3. Insert new row
   const asset = await insertMediaAsset({
     sha256_hash: hash,
     media_type: "video",
-    p_hash: framePHash, // Store the frame's pHash for future video-to-video matches
+    p_hash: null, 
     audio_fingerprint: null,
-    vibe_vector: frameVibeVector, // Store the frame's vibe vector
-    parent_id: parentId,
+    vibe_vector: null, 
+    parent_id: null,
     created_by: userId ?? null,
     metadata: { ...metadata, storage_url: storageUrl },
   });
 
-  let action: GuardResult["action"] = "new";
-  if (parentId && similarity !== undefined) {
-    action = similarity < 0.1 ? "direct_version" : "remix";
-  }
+  const action: GuardResult["action"] = "new";
 
   return {
     action,
@@ -413,9 +344,9 @@ export async function guardVideo(
       ...asset,
       storage_url: (asset.metadata as { storage_url?: string })?.storage_url
     },
-    similarity,
-    parent_id: parentId ?? undefined,
-    parent_owner_id: parentOwnerId,
-    parent_storage_url: parentStorageUrl,
+    similarity: undefined,
+    parent_id: undefined,
+    parent_owner_id: undefined,
+    parent_storage_url: undefined,
   };
 }

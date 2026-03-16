@@ -1,4 +1,4 @@
-import { BadgeCheck, Sparkles, FolderGit2, Users, Music } from "lucide-react";
+import { Sparkles, FolderGit2, Users, Music } from "lucide-react";
 import Link from "next/link";
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -16,7 +16,7 @@ export async function VibeSearchResults({ query }: { query: string }) {
   let vector: number[] = [];
   try {
     vector = await generateEmbedding(query);
-  } catch (err) {
+  } catch (_err) {
     return (
       <div className="py-12 text-center text-red-500">
         Failed to analyze search query. Ensure GOOGLE_GENERATIVE_AI_API_KEY is configured.
@@ -81,10 +81,10 @@ export async function VibeSearchResults({ query }: { query: string }) {
              Matching Talent
           </div>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-             {creators.map((c: any) => (
+             {creators.map((c: { id: string; public_slug: string | null; avatar_url: string | null; display_name: string | null; influence_score: number }) => (
                 <Link key={c.id} href={`/${c.public_slug}`} className="group flex items-center gap-4 p-4 rounded-2xl border bg-card hover:shadow-md transition-all">
                    <Avatar className="h-12 w-12 border-2 border-background shadow-sm">
-                      <AvatarImage src={c.avatar_url} />
+                      <AvatarImage src={c.avatar_url || undefined} />
                       <AvatarFallback className="bg-emerald-50 text-emerald-700 font-bold">{c.display_name?.[0]}</AvatarFallback>
                    </Avatar>
                    <div className="min-w-0">
@@ -105,7 +105,7 @@ export async function VibeSearchResults({ query }: { query: string }) {
              Matching Works
           </div>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {results.map((asset: any) => {
+            {results.map((asset: { hash_id: string; metadata: any; similarity: number; media_type: string; storage_url: string | null }) => {
               const meta = asset.metadata || {};
               const score = Math.round(asset.similarity * 100);
 
