@@ -14,7 +14,6 @@ import type { AssetMetadata } from "@/lib/types/database";
  */
 export async function POST(req: NextRequest) {
   try {
-    // Auth check
     const supabase = await createSupabaseServerClient();
     const {
       data: { user },
@@ -65,36 +64,45 @@ export async function POST(req: NextRequest) {
     const mimeType = file.type.toLowerCase();
     let result;
 
-    if (mimeType.startsWith("image/")) {
-      result = await guardImage(buffer, user.id, metadata, storageUrl);
-    } else if (mimeType.startsWith("audio/")) {
-      const ext = file.name.split(".").pop() ?? "mp3";
-      result = await guardAudio(buffer, user.id, metadata, ext, storageUrl);
-    } else if (mimeType.startsWith("video/")) {
-      let frameBuffer: Buffer | null = null;
-      if (frame && frame instanceof File) {
-        frameBuffer = Buffer.from(await frame.arrayBuffer());
+    try {
+      if (mimeType.startsWith("image/")) {
+        result = await guardImage(buffer, user.id, metadata, storageUrl);
+      } else if (mimeType.startsWith("audio/")) {
+        const ext = file.name.split(".").pop() ?? "mp3";
+        result = await guardAudio(buffer, user.id, metadata, ext, storageUrl);
+      } else if (mimeType.startsWith("video/")) {
+        let frameBuffer: Buffer | null = null;
+        if (frame && frame instanceof File) {
+          frameBuffer = Buffer.from(await frame.arrayBuffer());
+        }
+        result = await guardVideo(buffer, user.id, metadata, storageUrl, frameBuffer);
+      } else {
+        return NextResponse.json(
+          {
+            error: `Unsupported media type: ${file.type}. Only image/*, audio/*, and video/* are supported.`,
+          },
+          { status: 400 },
+        );
       }
-      result = await guardVideo(buffer, user.id, metadata, storageUrl, frameBuffer);
-    } else {
+
+      console.log(`Media Guard: DNA check successful for ${file.name}`);
+      return NextResponse.json(result);
+    } catch (error: any) {
+      console.error("Media Guard API: Internal Failure:", error);
       return NextResponse.json(
-        {
-          error: `Unsupported media type: ${file.type}. Only image/*, audio/*, and video/* are supported.`,
+        { 
+          error: "Internal Processing Error", 
+          details: error.message,
+          stack: error.stack
         },
-        { status: 400 },
+        { status: 500 }
       );
     }
-
-    return NextResponse.json(result);
   } catch (error: any) {
-    console.error("Media Guard API POST Error:", error);
+    console.error("Media Guard API: Request Error:", error);
     return NextResponse.json(
-      { 
-        error: "Internal server error", 
-        details: error?.message || "Unknown error",
-        stack: process.env.NODE_ENV === "development" ? error?.stack : undefined
-      },
-      { status: 500 },
+      { error: "Bad Request", details: error.message },
+      { status: 400 }
     );
   }
 }

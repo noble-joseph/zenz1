@@ -255,12 +255,9 @@ export default function NewProjectPage() {
         p_hash = mgData.asset?.p_hash || "";
         
         if (mgData.action === "remix" || mgData.action === "direct_version" || mgData.action === "exact_match") {
-          const originalUrl = mgData.parent_storage_url || storageUrl;
-          toast.error(`Upload Blocked: Similar content detected.`, {
-            duration: 10000,
-            action: { label: "View Original", onClick: () => window.open(originalUrl, "_blank") }
-          });
-          throw new Error(`Similarity Block: ${mgData.action}`);
+          reused = true;
+          storageUrl = mgData.parent_storage_url || storageUrl;
+          toast.info(`Media Guard: ${mgData.action.replace("_", " ")} detected. Linking original protection.`);
         }
       } else {
         const errData = await mgRes.json().catch(() => ({}));
@@ -276,8 +273,7 @@ export default function NewProjectPage() {
       media_type: mediaType,
       metadata: { originalName: file.name, size: file.size, type: file.type },
       created_by: userId,
-      p_hash: p_hash || null,
-      sha256_hash: sha256_hash
+      phash: p_hash || null,
     };
 
     const { error: insErr } = await supabase.from("assets").upsert(assetPayload, { onConflict: "hash_id" });
