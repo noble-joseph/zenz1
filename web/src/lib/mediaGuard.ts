@@ -10,7 +10,7 @@
 
 import { createHash } from "node:crypto";
 import { createSupabaseServerClient, createSupabaseAdminClient } from "@/lib/supabase/server";
-import { computePHash } from "@/lib/phash";
+import { computePHash, hammingDistance } from "@/lib/phash";
 import { generateVibeVector } from "@/lib/vibeVector";
 import {
   generateFingerprint,
@@ -67,7 +67,8 @@ async function insertMediaAsset(
 
 // ── Image Guard ────────────────────────────────────────────────────────────
 
-const SIMILARITY_THRESHOLD = 0.3; // Allow up to Remix range
+const SIMILARITY_THRESHOLD = 0.5; // Wider range to capture remixes (Distance 0.0 to 0.5)
+const PHASH_THRESHOLD = 5;       // Max hamming distance for perceptual identity
 
 export async function guardImage(
   imageBuffer: Buffer,
@@ -125,10 +126,38 @@ export async function guardImage(
         parentStorageUrl = best.metadata?.storage_url;
         console.log(`Media Guard: Similarity match found! Parent: ${parentId}, Distance: ${similarity}`);
       } else {
-        console.log("Media Guard: No similar assets found within threshold.");
+        console.log("Media Guard: No similar assets found within DINOv2 threshold.");
       }
     } else {
       console.warn(`Media Guard: vibeVector dimension mismatch. Expected 768, got ${vibeVector.length}`);
+    }
+  }
+
+  // 4a. Fallback: pHash check (if no DINOv2 match or DINOv2 failed)
+  if (!parentId && pHash) {
+    const supabase = createSupabaseAdminClient();
+    const { data: pHashMatches } = await supabase
+      .from("media_assets")
+      .select("id, p_hash, created_by, metadata")
+      .eq("media_type", "image")
+      .not("p_hash", "is", null);
+
+    if (pHashMatches) {
+        // Simple hamming distance comparison would be slow in JS for many assets,
+        // but for now we iterate since pHash check is a fallback.
+        // Stage 3 would implement this as a Postgres extension or similar.
+        for (const row of pHashMatches) {
+            // Hamming distance logic...
+            const distance = hammingDistance(pHash, row.p_hash as string);
+            if (distance <= PHASH_THRESHOLD) {
+                parentId = row.id;
+                similarity = 0.05; // Treat as direct version
+                parentOwnerId = row.created_by as string | undefined;
+                parentStorageUrl = (row.metadata as any)?.storage_url;
+                console.log(`Media Guard: pHash match found! Distance: ${distance}`);
+                break;
+            }
+        }
     }
   }
 
@@ -145,10 +174,18 @@ export async function guardImage(
   });
 
   let action: GuardResult["action"] = "new";
+  let attributionType: string = "remix";
+
   if (parentId && similarity !== undefined) {
     // 0.0 is perfect match, < 0.1 is likely crop/resolution change (Direct Version)
     // 0.1 to 0.5 is likely remix / clear derivative
-    action = similarity < 0.1 ? "direct_version" : "remix";
+    if (similarity < 0.1) {
+      action = "direct_version";
+      attributionType = "version";
+    } else {
+      action = "remix";
+      attributionType = "remix";
+    }
   }
 
   return {
@@ -262,5 +299,49 @@ export async function guardAudio(
     parent_id: parentId ?? undefined,
     parent_owner_id: parentOwnerId,
     parent_storage_url: parentStorageUrl,
+  };
+}
+
+// ── Video Guard ────────────────────────────────────────────────────────────
+
+/**
+ * Initial Video Guard (Stage 2)
+ * Currently performs SHA-256 and Metadata checks.
+ * Future refinement: Keyframe extraction via FFmpeg.
+ */
+export async function guardVideo(
+  videoBuffer: Buffer,
+  userId?: string | null,
+  metadata: AssetMetadata = {},
+  storageUrl?: string,
+): Promise<GuardResult> {
+  // 1. SHA-256 exact match check
+  const hash = sha256(videoBuffer);
+  const existing = await findExactMatch(hash);
+  if (existing) {
+    return { action: "exact_match", asset: existing, similarity: 0 };
+  }
+
+  // 2. Binary prefix check (heuristic for same start but different length/encoding)
+  // For now, we just insert as new.
+
+  // 3. Insert new row
+  const asset = await insertMediaAsset({
+    sha256_hash: hash,
+    media_type: "video" as any,
+    p_hash: null,
+    audio_fingerprint: null,
+    vibe_vector: null,
+    parent_id: null,
+    created_by: userId ?? null,
+    metadata: { ...metadata, storage_url: storageUrl },
+  });
+
+  return {
+    action: "new",
+    asset: {
+      ...asset,
+      storage_url: (asset.metadata as any)?.storage_url as string | undefined
+    },
   };
 }

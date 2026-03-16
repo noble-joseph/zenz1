@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { guardImage, guardAudio, findExactMatch, isFpcalcAvailable } from "@/lib/mediaGuard";
+import { guardImage, guardAudio, guardVideo, findExactMatch, isFpcalcAvailable } from "@/lib/mediaGuard";
 import type { AssetMetadata } from "@/lib/types/database";
 
 /**
@@ -69,10 +69,12 @@ export async function POST(req: NextRequest) {
     } else if (mimeType.startsWith("audio/")) {
       const ext = file.name.split(".").pop() ?? "mp3";
       result = await guardAudio(buffer, user.id, metadata, ext, storageUrl);
+    } else if (mimeType.startsWith("video/")) {
+      result = await guardVideo(buffer, user.id, metadata, storageUrl);
     } else {
       return NextResponse.json(
         {
-          error: `Unsupported media type: ${file.type}. Only image/* and audio/* are supported.`,
+          error: `Unsupported media type: ${file.type}. Only image/*, audio/*, and video/* are supported.`,
         },
         { status: 400 },
       );

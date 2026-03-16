@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Image as ImageIcon, Film, Music, FileText, File } from "lucide-react";
+import { Image as ImageIcon, Film, Music, FileText, File, ExternalLink } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
 
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import {
@@ -41,7 +43,8 @@ const MEDIA_COLORS = {
 } as const;
 
 export default function AssetsPage() {
-  const [assets, setAssets] = useState<Asset[]>([]);
+  const router = useRouter();
+  const [assets, setAssets] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -56,13 +59,13 @@ export default function AssetsPage() {
         if (!user) return;
 
         const { data, error } = await supabase
-          .from("assets")
+          .from("media_assets")
           .select("*")
           .eq("created_by", user.id)
           .order("created_at", { ascending: false });
 
         if (error) throw error;
-        setAssets((data ?? []) as Asset[]);
+        setAssets((data ?? []) as any[]);
       } catch (err) {
         toast.error(
           err instanceof Error ? err.message : "Failed to load assets.",
@@ -122,21 +125,23 @@ export default function AssetsPage() {
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {assets.map((asset) => {
             const Icon =
-              MEDIA_ICONS[asset.media_type] ?? MEDIA_ICONS.other;
+              MEDIA_ICONS[asset.media_type as keyof typeof MEDIA_ICONS] ?? MEDIA_ICONS.other;
             const colorCls =
-              MEDIA_COLORS[asset.media_type] ?? MEDIA_COLORS.other;
+              MEDIA_COLORS[asset.media_type as keyof typeof MEDIA_COLORS] ?? MEDIA_COLORS.other;
             const meta = asset.metadata;
 
             return (
-              <Dialog key={asset.hash_id}>
-                <DialogTrigger render={<Card className="cursor-pointer transition-shadow hover:shadow-md" />}>
-                  <CardContent className="p-0">
+              <Dialog key={asset.id}>
+                <DialogTrigger 
+                  render={<Card className="cursor-pointer transition-shadow hover:shadow-md" />}
+                >
+                    <CardContent className="p-0">
                       {/* Preview */}
                       <div className="relative flex h-32 items-center justify-center rounded-t-lg bg-muted">
                         {asset.media_type === "image" && asset.storage_url ? (
                           // eslint-disable-next-line @next/next/no-img-element
                           <img
-                            src={`/api/signed-url?hash=${asset.hash_id}`}
+                            src={asset.storage_url}
                             alt={meta?.originalName ?? "Asset"}
                             className="h-full w-full rounded-t-lg object-cover"
                           />
@@ -165,8 +170,19 @@ export default function AssetsPage() {
                           )}
                         </div>
                         <p className="mt-1 font-mono text-xs text-muted-foreground">
-                          {asset.hash_id.slice(0, 16)}…
+                          {asset.sha256_hash.slice(0, 16)}…
                         </p>
+                        <Button 
+                          size="sm" 
+                          variant="ghost" 
+                          className="w-full mt-2 h-7 text-[10px] uppercase font-bold tracking-tighter hover:bg-emerald-50 hover:text-emerald-700"
+                          onClick={(e: React.MouseEvent) => {
+                            e.stopPropagation();
+                            router.push(`/dashboard/assets/${asset.id}`);
+                          }}
+                        >
+                          Inspect Lineage
+                        </Button>
                       </div>
                     </CardContent>
                 </DialogTrigger>

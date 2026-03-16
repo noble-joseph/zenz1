@@ -109,3 +109,22 @@ export async function computePHash(imageBuffer: Buffer): Promise<string> {
 
   return hex;
 }
+
+/**
+ * Compute hamming distance between two hex-string hashes.
+ */
+export function hammingDistance(h1: string, h2: string): number {
+  if (h1.length !== h2.length) return h1.length * 4; // Max distance
+  let distance = 0;
+  for (let i = 0; i < h1.length; i++) {
+    const v1 = parseInt(h1[i], 16);
+    const v2 = parseInt(h2[i], 16);
+    let xor = v1 ^ v2;
+    // Count bits
+    while (xor > 0) {
+      if (xor & 1) distance++;
+      xor >>= 1;
+    }
+  }
+  return distance;
+}
