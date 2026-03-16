@@ -10,7 +10,7 @@
 import { execFile } from "node:child_process";
 import { writeFile, unlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { randomUUID } from "node:crypto";
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -21,6 +21,21 @@ export interface FpcalcResult {
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────
+
+/**
+ * Resolve the path to the fpcalc binary.
+ * Priority: 
+ * 1. Bundled Linux binary (if platform is linux)
+ * 2. System fpcalc command
+ */
+function getFpcalcCommand(): string {
+  if (process.platform === "linux") {
+    // Resolve relative to process.cwd() which is the project root on Vercel.
+    // We expect the binary to be at <root>/bin/fpcalc-linux
+    return resolve(process.cwd(), "bin", "fpcalc-linux");
+  }
+  return "fpcalc";
+}
 
 /**
  * Jaccard similarity between two raw fingerprint strings.
@@ -60,10 +75,12 @@ export async function generateFingerprint(
     // Write buffer to temp file so fpcalc can read it
     await writeFile(tmpPath, audioBuffer);
 
+    const cmd = getFpcalcCommand();
+
     // Invoke fpcalc
     const output = await new Promise<string>((resolve, reject) => {
       execFile(
-        "fpcalc",
+        cmd,
         ["-raw", "-json", tmpPath],
         { timeout: 30_000 },
         (error, stdout, stderr) => {
@@ -99,8 +116,9 @@ export async function generateFingerprint(
  * Check whether `fpcalc` is available on the system.
  */
 export function isFpcalcAvailable(): Promise<boolean> {
+  const cmd = getFpcalcCommand();
   return new Promise((resolve) => {
-    execFile("fpcalc", ["-version"], { timeout: 5_000 }, (error) => {
+    execFile(cmd, ["-version"], { timeout: 5_000 }, (error) => {
       resolve(!error);
     });
   });
