@@ -11,7 +11,9 @@ import {
   ExternalLink,
   ShieldCheck,
   History,
-  Link as LinkIcon
+  Link as LinkIcon,
+  AlertCircle,
+  Loader2
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -20,6 +22,16 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 import type { MediaAsset } from "@/lib/types/database";
 
 export default function AssetDetailPage() {
@@ -30,6 +42,47 @@ export default function AssetDetailPage() {
   const [derivatives, setDerivatives] = useState<MediaAsset[]>([]);
   const [attributions, setAttributions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Dispute state
+  const [disputeReason, setDisputeReason] = useState("");
+  const [submittingDispute, setSubmittingDispute] = useState(false);
+  const [isDisputeOpen, setIsDisputeOpen] = useState(false);
+
+  async function openDispute() {
+    if (!disputeReason.trim()) {
+      toast.error("Please provide a reason for the dispute.");
+      return;
+    }
+
+    try {
+      setSubmittingDispute(true);
+      const supabase = createSupabaseBrowserClient();
+      if (!supabase) return;
+
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Unauthorized");
+
+      const { error } = await supabase
+        .from("disputes")
+        .insert({
+          asset_id: id,
+          creator_id: user.id,
+          dispute_type: "incorrect_match",
+          reason: disputeReason,
+          status: "open"
+        });
+
+      if (error) throw error;
+
+      toast.success("Dispute opened successfully.");
+      setIsDisputeOpen(false);
+      setDisputeReason("");
+    } catch (err: any) {
+      toast.error(`Failed to open dispute: ${err.message}`);
+    } finally {
+      setSubmittingDispute(false);
+    }
+  }
 
   useEffect(() => {
     async function load() {
@@ -237,10 +290,47 @@ export default function AssetDetailPage() {
                   <p className="text-xs font-mono break-all bg-zinc-50 dark:bg-zinc-900 p-2 rounded border">{asset.p_hash}</p>
                 </div>
               )}
-              <div className="pt-2">
+              <div className="pt-2 space-y-2">
                  <Badge className="w-full justify-center bg-emerald-600 hover:bg-emerald-600 cursor-default py-2">
                     Media Guard Active
                  </Badge>
+
+                 <Dialog open={isDisputeOpen} onOpenChange={setIsDisputeOpen}>
+                   <DialogTrigger render={
+                     <Button variant="outline" size="sm" className="w-full gap-2 text-[10px] uppercase font-bold tracking-widest border-amber-200 text-amber-700 hover:bg-amber-50">
+                        <AlertCircle className="h-3 w-3" />
+                        Flag / Dispute
+                     </Button>
+                   } />
+                   <DialogContent>
+                     <DialogHeader>
+                       <DialogTitle>Open a Resolution Dispute</DialogTitle>
+                       <DialogDescription>
+                         If you believe this Media Guard classification is incorrect or if you are the primary rights holder, please provide a reason.
+                       </DialogDescription>
+                     </DialogHeader>
+                     <div className="py-4">
+                       <Textarea 
+                         placeholder="Explain the reason for this dispute..." 
+                         value={disputeReason}
+                         onChange={(e) => setDisputeReason(e.target.value)}
+                         className="min-h-[120px]"
+                       />
+                     </div>
+                     <DialogFooter>
+                       <Button variant="ghost" onClick={() => setIsDisputeOpen(false)}>Cancel</Button>
+                       <Button 
+                         variant="default" 
+                         onClick={openDispute} 
+                         disabled={submittingDispute}
+                         className="gap-2"
+                       >
+                         {submittingDispute && <Loader2 className="h-4 w-4 animate-spin" />}
+                         Submit Dispute
+                       </Button>
+                     </DialogFooter>
+                   </DialogContent>
+                 </Dialog>
               </div>
             </CardContent>
           </Card>
@@ -266,17 +356,25 @@ export default function AssetDetailPage() {
                              <Badge variant="outline" className="text-[9px] uppercase">{attr.attribution_type}</Badge>
                              <span className="text-[10px] text-zinc-400">{new Date(attr.created_at).toLocaleDateString()}</span>
                           </div>
-                          <div className="flex items-center gap-2 text-xs">
-                             <User className="h-3 w-3 text-zinc-400" />
-                             <span className="font-bold">
-                                { attr.original_owner_id === asset.created_by ? "You" : attr.original_owner?.display_name || "Unknown Creator" }
-                             </span>
-                             <span className="text-zinc-400">remixed by</span>
-                             <span className="font-bold">
-                                { attr.derivative_owner_id === asset.created_by ? "You" : attr.derivative_owner?.display_name || "Unknown Creator" }
-                             </span>
-                          </div>
-                       </div>
+                           <div className="flex items-center gap-2 text-xs">
+                              <User className="h-3 w-3 text-zinc-400" />
+                              <span className="font-bold">
+                                 { attr.original_owner_id === asset.created_by ? "You" : attr.original_owner?.display_name || "Unknown Creator" }
+                              </span>
+                              <span className="text-zinc-400">remixed by</span>
+                              <span className="font-bold">
+                                 { attr.derivative_owner_id === asset.created_by ? "You" : attr.derivative_owner?.display_name || "Unknown Creator" }
+                              </span>
+                           </div>
+                           {attr.revenue_share_percent > 0 && (
+                             <div className="flex items-center gap-1.5 pt-1">
+                                <div className="h-1 w-1 rounded-full bg-emerald-500" />
+                                <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-tighter">
+                                   Revenue Share Linked: {attr.revenue_share_percent}%
+                                </p>
+                             </div>
+                           )}
+                        </div>
                      ))}
                   </div>
                 )}

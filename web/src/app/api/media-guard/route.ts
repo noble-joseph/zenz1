@@ -27,6 +27,7 @@ export async function POST(req: NextRequest) {
     // Parse multipart form data
     const formData = await req.formData();
     const file = formData.get("file");
+    const frame = formData.get("frame");
     const hash = formData.get("hash") as string | undefined;
     const storageUrl = formData.get("storage_url") as string | undefined;
 
@@ -70,7 +71,11 @@ export async function POST(req: NextRequest) {
       const ext = file.name.split(".").pop() ?? "mp3";
       result = await guardAudio(buffer, user.id, metadata, ext, storageUrl);
     } else if (mimeType.startsWith("video/")) {
-      result = await guardVideo(buffer, user.id, metadata, storageUrl);
+      let frameBuffer: Buffer | null = null;
+      if (frame && frame instanceof File) {
+        frameBuffer = Buffer.from(await frame.arrayBuffer());
+      }
+      result = await guardVideo(buffer, user.id, metadata, storageUrl, frameBuffer);
     } else {
       return NextResponse.json(
         {

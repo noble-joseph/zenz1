@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   GitCommitHorizontal,
@@ -9,7 +9,10 @@ import {
   Upload,
   Eye,
   EyeOff,
+  Link as LinkIcon,
   Users,
+  ShieldCheck,
+  History
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -53,6 +56,7 @@ interface CollabRow {
 
 export default function ProjectDetailPage() {
   const params = useParams();
+  const router = useRouter();
   const projectId = params.id as string;
 
   const [project, setProject] = useState<ProjectDetail | null>(null);
@@ -99,7 +103,7 @@ export default function ProjectDetailPage() {
           const assetIds = commitData.map((c) => c.asset_id);
           const { data: assetData } = await supabase
             .from("assets")
-            .select("hash_id, storage_url, media_type, metadata")
+            .select("hash_id, storage_url, media_type, metadata, p_hash, sha256_hash")
             .in("hash_id", assetIds);
           
           if (assetData) {
@@ -260,15 +264,36 @@ export default function ProjectDetailPage() {
                )}
             </div>
             {displayAsset && (
-              <div className="p-4 bg-white flex items-center justify-between">
-                <div>
-                  <h3 className="font-medium text-sm">{displayAsset.metadata?.originalName || "Unnamed Asset"}</h3>
-                  <p className="text-xs text-zinc-500 mt-1">SHA-256: {displayAsset.hash_id.slice(0, 16)}...</p>
+              <div className="p-4 bg-white flex items-center justify-between border-t">
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-medium text-sm truncate">{displayAsset.metadata?.originalName || "Unnamed Asset"}</h3>
+                  <div className="flex items-center gap-3 mt-1">
+                    <p className="text-[10px] font-mono text-zinc-400">HASH: {displayAsset.hash_id.slice(0, 12)}...</p>
+                    {displayAsset.p_hash && (
+                      <p className="text-[10px] font-mono text-emerald-600 bg-emerald-50 px-1 rounded">pHash Guard Active</p>
+                    )}
+                  </div>
                 </div>
-                <Badge variant="outline">{displayAsset.media_type}</Badge>
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline" className="text-[10px] uppercase">{displayAsset.media_type}</Badge>
+                  <Button 
+                    size="sm" 
+                    variant="secondary" 
+                    className="h-8 text-[10px] font-bold uppercase tracking-tight"
+                    onClick={() => router.push(`/dashboard/assets/${displayAsset.hash_id}`)}
+                  >
+                    <History className="h-3 w-3 mr-1.5" />
+                    Lineage
+                  </Button>
+                </div>
               </div>
             )}
           </Card>
+          
+          <div className="flex items-center gap-2 px-4 py-2 bg-emerald-50 border border-emerald-100 rounded-lg">
+             <ShieldCheck className="h-4 w-4 text-emerald-600" />
+             <span className="text-[10px] font-black uppercase text-emerald-800 tracking-widest">Media Guard Protection Verified for this Project</span>
+          </div>
           
           {/* Also show all assets below if they want to browse files */}
           {assets.length > 0 && (

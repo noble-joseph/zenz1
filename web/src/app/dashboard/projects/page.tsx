@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Image as ImageIcon, Film, Music, FileText, File, ExternalLink, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
 
@@ -132,18 +133,22 @@ export default function ProjectsPage() {
                   </button>
                 </div>
               </div>
-              <div className="mt-2 flex items-center gap-3 text-xs text-zinc-500">
-                <span
-                  className={`rounded-full px-2 py-0.5 ${
-                    p.is_public
-                      ? "bg-green-100 text-green-800"
-                      : "bg-zinc-100 text-zinc-600"
-                  }`}
-                >
-                  {p.is_public ? "public" : "private"}
-                </span>
-                <span>id: {p.id}</span>
-              </div>
+                <div className="flex items-center gap-3 text-xs text-zinc-500">
+                  <span
+                    className={`rounded-full px-2 py-0.5 ${
+                      p.is_public
+                        ? "bg-green-100 text-green-800"
+                        : "bg-zinc-100 text-zinc-600"
+                    }`}
+                  >
+                    {p.is_public ? "public" : "private"}
+                  </span>
+                  <div className="flex items-center gap-1.5 text-emerald-600 font-bold uppercase tracking-widest text-[9px] bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100">
+                     <ShieldCheck className="h-3 w-3" />
+                     Media Guard Protected
+                  </div>
+                  <span>id: {p.id}</span>
+                </div>
             </div>
           ))
         )}

@@ -10,7 +10,7 @@ import { getEmbeddingAction } from "@/app/actions/embeddings";
 import type { IngestResult, MediaType } from "@/lib/types/database";
 
 type PageResult =
-  | { ok: true; data: IngestResult }
+  | { ok: true; data: IngestResult & { mgAction?: string | null } }
   | { ok: false; error: string };
 
 export default function IngestPage() {
@@ -89,6 +89,43 @@ export default function IngestPage() {
     return out;
   }
 
+  // ---- Video Frame Extraction (Client-side) ----
+  
+  async function extractVideoFrame(file: File): Promise<Blob | null> {
+    return new Promise((resolve) => {
+      const video = document.createElement("video");
+      const canvas = document.createElement("canvas");
+      const ctx = canvas.getContext("2d");
+      
+      video.preload = "metadata";
+      video.muted = true;
+      video.playsInline = true;
+      video.src = URL.createObjectURL(file);
+      
+      video.onloadedmetadata = () => {
+        // Seek to 1 second or mid-point
+        video.currentTime = Math.min(1, video.duration / 2);
+      };
+      
+      video.onseeked = () => {
+        if (!ctx) return resolve(null);
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        
+        canvas.toBlob((blob) => {
+          URL.revokeObjectURL(video.src);
+          resolve(blob);
+        }, "image/jpeg", 0.8);
+      };
+      
+      video.onerror = () => {
+        URL.revokeObjectURL(video.src);
+        resolve(null);
+      };
+    });
+  }
+
   // ---- Core Ingestion Pipeline ----
 
   async function ingestFile(file: File) {
@@ -142,16 +179,33 @@ export default function IngestPage() {
         storageUrl = existing.storage_url;
         reused = true;
         console.log("Media Guard [Local]: Hash match found.", hash);
-        toast.success("Media Guard: Asset already exists in your library. Reusing storage.");
+        toast.warning("DUPLICATE FOUND: This asset is already in your library.", {
+          description: "Storage space was saved by reusing the existing version.",
+          duration: 5000
+        });
       } else {
         console.log("Media Guard [Stage 1]: Starting global registry check for hash:", hash);
         // Step 2.5: Global Media Guard Pre-Check (Stage 1: Identity Guard)
-        if (mediaType === "image" || mediaType === "audio") {
+        // This block is now extended to handle video frames for Media Guard
+        
+        // Prepare FormData for Media Guard API
+        const mgPreCheckForm = new FormData();
+        mgPreCheckForm.append("hash", hash); // Always send hash for pre-check
+
+        // If video, also send a frame for semantic DNA check
+        let videoFrameBlob: Blob | null = null;
+        if (file.type.startsWith("video/")) {
+          videoFrameBlob = await extractVideoFrame(file);
+          if (videoFrameBlob) {
+            mgPreCheckForm.append("frame", videoFrameBlob, "frame.jpg");
+          }
+        }
+
+        // Only perform global registry check if it's an image, audio, or video (with frame)
+        if (mediaType === "image" || mediaType === "audio" || (mediaType === "video" && videoFrameBlob)) {
           toast.loading("Media Guard: Checking global registry...", { id: "mg-pre" });
           try {
-            const preCheckForm = new FormData();
-            preCheckForm.append("hash", hash);
-            const preRes = await fetch("/api/media-guard", { method: "POST", body: preCheckForm });
+            const preRes = await fetch("/api/media-guard", { method: "POST", body: mgPreCheckForm });
             if (preRes.ok) {
               const preData = await preRes.json();
               if (preData.action === "exact_match" && preData.asset?.storage_url) {
@@ -159,7 +213,10 @@ export default function IngestPage() {
                 reused = true;
                 mgAction = "exact_match";
                 console.log("Media Guard [Stage 1]: Global exact match found!", storageUrl);
-                toast.success("Media Guard: Exact global match verified. Skipping storage.");
+                toast.warning("EXACT MATCH FOUND: This asset exists in the global registry.", {
+                  description: "Protection linked. No new file was uploaded.",
+                  duration: 6000
+                });
               } else {
                 console.log("Media Guard [Stage 1]: No global match found. Proceeding to upload.");
                 toast.dismiss("mg-pre");
@@ -207,21 +264,27 @@ export default function IngestPage() {
                 if (mgAction === "direct_version") {
                   const isOtherUser = mgData.parent_owner_id && mgData.parent_owner_id !== user.id;
                   if (isOtherUser) {
-                    toast.warning("Media Guard: This image is a crop/version of an asset owned by another user.", { duration: 6000 });
+                    toast.warning("SIMILAR CONTENT: This is likely a crop or version of another creator's asset.", { 
+                      description: "Formal attribution has been automatically linked.",
+                      duration: 8000 
+                    });
                   } else {
-                    toast.success("Media Guard: Direct version linked to your parent asset.");
+                    toast.success("VERSION TRACKED: This is a direct version/crop of your own asset.");
                   }
                 } else if (mgAction === "remix") {
                   const isOtherUser = mgData.parent_owner_id && mgData.parent_owner_id !== user.id;
                   if (isOtherUser) {
-                    toast.info("Media Guard: Remix of another creator's work detected. Attribution linked.", { duration: 6000 });
+                    toast.info("REMIX DETECTED: This work is a remix of another creator's asset.", { 
+                      description: "Creator credits have been established in the lineage.",
+                      duration: 8000 
+                    });
                   } else {
-                    toast.info("Media Guard: Remix of your own asset detected.");
+                    toast.info("REMIX DETECTED: This is a derivative of your own asset.");
                   }
                 } else if (mgAction === "sample") {
-                  toast.info("Media Guard: Audio sample detected! Credits linked.");
+                  toast.info("AUDIO SAMPLE TRACKED: Credits linked to the original audio source.");
                 } else if (mgAction === "new") {
-                  toast.success("Media Guard: New master asset tracked.");
+                  toast.success("MEDIA GUARD: New master identity verified and protected.");
                 }
               } else {
                 const errText = await mgRes.text();
@@ -302,6 +365,7 @@ export default function IngestPage() {
           reused,
           storageUrl,
           commitId: commit.id,
+          mgAction,
         },
       });
       toast.success(reused ? "Dedup + committed." : "Uploaded + committed.");
@@ -475,6 +539,14 @@ export default function IngestPage() {
                   view asset
                 </a>
               </div>
+              {result.data.mgAction && (
+                <div className="mt-2 pt-2 border-t flex items-center gap-2">
+                  <span className="font-bold uppercase text-[10px] tracking-widest text-emerald-600">Media Guard Status:</span>
+                  <span className="text-xs font-medium px-2 py-0.5 bg-emerald-50 text-emerald-700 rounded border border-emerald-100">
+                    {result.data.mgAction.replace("_", " ").toUpperCase()}
+                  </span>
+                </div>
+              )}
             </div>
           ) : (
             <div className="text-red-600">{result.error}</div>

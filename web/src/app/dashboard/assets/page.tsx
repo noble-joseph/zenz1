@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Image as ImageIcon, Film, Music, FileText, File, ExternalLink } from "lucide-react";
+import { Image as ImageIcon, Film, Music, FileText, File, ExternalLink, Search, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -46,6 +46,11 @@ export default function AssetsPage() {
   const router = useRouter();
   const [assets, setAssets] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  
+  // Similar search state
+  const [similarAssets, setSimilarAssets] = useState<any[]>([]);
+  const [lookingForSimilar, setLookingForSimilar] = useState(false);
+  const [searchingAssetId, setSearchingAssetId] = useState<string | null>(null);
 
   useEffect(() => {
     async function load() {
@@ -90,6 +95,25 @@ export default function AssetsPage() {
       day: "numeric",
       year: "numeric",
     });
+  }
+
+  async function findSimilar(assetId: string) {
+    try {
+      setLookingForSimilar(true);
+      setSearchingAssetId(assetId);
+      setSimilarAssets([]);
+      
+      const res = await fetch(`/api/assets/similar?assetId=${assetId}`);
+      const json = await res.json();
+      
+      if (!json.ok) throw new Error(json.error);
+      setSimilarAssets(json.data);
+      
+    } catch (err: any) {
+      toast.error(`Discovery failed: ${err.message}`);
+    } finally {
+      setLookingForSimilar(false);
+    }
   }
 
   return (
@@ -172,76 +196,105 @@ export default function AssetsPage() {
                         <p className="mt-1 font-mono text-xs text-muted-foreground">
                           {asset.sha256_hash.slice(0, 16)}…
                         </p>
-                        <Button 
-                          size="sm" 
-                          variant="ghost" 
-                          className="w-full mt-2 h-7 text-[10px] uppercase font-bold tracking-tighter hover:bg-emerald-50 hover:text-emerald-700"
-                          onClick={(e: React.MouseEvent) => {
-                            e.stopPropagation();
-                            router.push(`/dashboard/assets/${asset.id}`);
-                          }}
-                        >
-                          Inspect Lineage
-                        </Button>
+                        <div className="mt-2 grid grid-cols-2 gap-2">
+                          <Button 
+                            size="sm" 
+                            variant="secondary" 
+                            className="h-7 text-[10px] uppercase font-bold tracking-tighter"
+                            onClick={(e: React.MouseEvent) => {
+                              e.stopPropagation();
+                              router.push(`/dashboard/assets/${asset.id}`);
+                            }}
+                          >
+                            Lineage
+                          </Button>
+                          <DialogTrigger 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              void findSimilar(asset.id);
+                            }}
+                          >
+                            <Button 
+                              size="sm" 
+                              variant="outline" 
+                              className="w-full h-7 text-[10px] uppercase font-bold tracking-tighter hover:bg-blue-50 hover:text-blue-700"
+                            >
+                              <Search className="h-3 w-3 mr-1" />
+                              Similar
+                            </Button>
+                          </DialogTrigger>
+                        </div>
                       </div>
                     </CardContent>
                 </DialogTrigger>
-
-                <DialogContent className="max-w-lg">
-                  <DialogHeader>
-                    <DialogTitle>
-                      {meta?.originalName ?? "Asset Details"}
-                    </DialogTitle>
-                    <DialogDescription>
-                      Content-addressed asset metadata.
-                    </DialogDescription>
-                  </DialogHeader>
-
-                  <div className="space-y-3 text-sm">
-                    <div className="grid grid-cols-[100px_1fr] gap-2">
-                      <span className="font-medium">SHA-256</span>
-                      <code className="break-all text-xs">
-                        {asset.hash_id}
-                      </code>
-                    </div>
-                    {asset.phash && (
-                      <div className="grid grid-cols-[100px_1fr] gap-2">
-                        <span className="font-medium">pHash</span>
-                        <code className="break-all text-xs">
-                          {asset.phash}
-                        </code>
-                      </div>
-                    )}
-                    <div className="grid grid-cols-[100px_1fr] gap-2">
-                      <span className="font-medium">Media Type</span>
-                      <Badge variant="outline" className="w-fit">
-                        {asset.media_type}
-                      </Badge>
-                    </div>
-                    <div className="grid grid-cols-[100px_1fr] gap-2">
-                      <span className="font-medium">Storage</span>
-                        <a
-                          href={`/api/signed-url?hash=${asset.hash_id}`}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="font-medium text-emerald-600 hover:underline"
-                        >
-                          View Source
-                        </a>
-                    </div>
-                    {meta?.size && (
-                      <div className="grid grid-cols-[100px_1fr] gap-2">
-                        <span className="font-medium">Size</span>
-                        <span>{formatBytes(meta.size as number)}</span>
-                      </div>
-                    )}
-                    <div className="grid grid-cols-[100px_1fr] gap-2">
-                      <span className="font-medium">Uploaded</span>
-                      <span>{formatDate(asset.created_at)}</span>
-                    </div>
-                  </div>
-                </DialogContent>
-              </Dialog>
+ 
+                 <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+                   <DialogHeader>
+                     <DialogTitle className="flex items-center gap-2">
+                       <Search className="h-5 w-5" />
+                       Visual Discovery: {meta?.originalName}
+                     </DialogTitle>
+                     <DialogDescription>
+                       Finding similar assets across the global Media Guard registry.
+                     </DialogDescription>
+                   </DialogHeader>
+ 
+                   <div className="space-y-6 pt-4">
+                      {lookingForSimilar ? (
+                        <div className="flex flex-col items-center justify-center py-12 gap-3 text-zinc-500">
+                          <Loader2 className="h-8 w-8 animate-spin" />
+                          <p className="text-sm font-medium">Scanning semantic vector space...</p>
+                        </div>
+                      ) : similarAssets.length === 0 ? (
+                        <div className="py-12 text-center text-zinc-500 border-2 border-dashed rounded-xl">
+                          <p className="text-sm">No similar assets found in the registry.</p>
+                        </div>
+                      ) : (
+                        <div className="grid gap-4 sm:grid-cols-2">
+                          {similarAssets.map(sim => (
+                            <Card key={sim.id} className="overflow-hidden bg-zinc-50 dark:bg-zinc-900/50">
+                              <div className="aspect-video bg-zinc-200 dark:bg-zinc-800">
+                                {sim.metadata?.storage_url && (
+                                  <img 
+                                    src={sim.metadata.storage_url} 
+                                    alt="Similar asset" 
+                                    className="h-full w-full object-cover" 
+                                  />
+                                )}
+                              </div>
+                              <div className="p-3">
+                                <div className="flex items-center justify-between gap-2 mb-2">
+                                  <p className="truncate text-xs font-bold">{sim.metadata?.originalName || "Unnamed Asset"}</p>
+                                  <Badge variant="secondary" className="text-[9px] uppercase">
+                                    {Math.round((1 - sim.distance) * 100)}% Match
+                                  </Badge>
+                                </div>
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-1.5 text-[10px] text-zinc-500">
+                                    <ImageIcon className="h-3 w-3" />
+                                    <span>Created by <span className="font-bold text-zinc-700 dark:text-zinc-300">{sim.owner?.display_name || "Unknown"}</span></span>
+                                  </div>
+                                  <Button 
+                                    size="sm" 
+                                    variant="ghost" 
+                                    className="h-6 text-[9px] uppercase px-2"
+                                    onClick={() => router.push(`/dashboard/assets/${sim.id}`)}
+                                  >
+                                    View
+                                  </Button>
+                                </div>
+                              </div>
+                            </Card>
+                          ))}
+                        </div>
+                      )}
+                   </div>
+                   
+                   <div className="mt-4 pt-4 border-t text-[10px] text-zinc-400 font-medium uppercase tracking-widest text-center">
+                      Discovery powered by Media Guard Semantic DNA
+                   </div>
+                 </DialogContent>
+               </Dialog>
             );
           })}
         </div>
