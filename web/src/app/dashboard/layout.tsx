@@ -56,17 +56,17 @@ export default function DashboardLayout({
       router.replace("/login");
       return;
     }
-    supabase.auth.getSession().then(({ data }) => {
-      if (!data.session) {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user) {
         router.replace(
           `/login?next=${encodeURIComponent(pathname ?? "/dashboard")}`,
         );
       } else {
-        setEmail(data.session.user.email ?? null);
+        setEmail(user.email ?? null);
         supabase
           .from("profiles")
           .select("display_name, public_slug, avatar_url, role")
-          .eq("id", data.session.user.id)
+          .eq("id", user.id)
           .maybeSingle()
           .then(({ data: prof }) => {
             if (prof?.display_name) {

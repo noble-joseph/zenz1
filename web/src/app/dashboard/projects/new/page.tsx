@@ -205,7 +205,7 @@ export default function NewProjectPage() {
     projectId: string, 
     supabase: any, // eslint-disable-line @typescript-eslint/no-explicit-any
     commitMessage: string
-  ): Promise<void> => {
+  ): Promise<{ success: boolean; isDuplicate: boolean; originalProjectId?: string }> => {
     const hash = await sha256Hex(file);
     const mediaType: MediaType = detectMediaType(file.type);
     
@@ -232,7 +232,20 @@ export default function NewProjectPage() {
         if (preData.action === "exact_match" && preData.asset?.storage_url) {
           storageUrl = preData.asset.storage_url;
           reused = true;
-          toast.info(`Media Guard: Exact match found for ${file.name}. Linking protection.`);
+          
+          // Try to find if this asset already belongs to a project
+          const { data: existingCommit } = await supabase
+            .from("commits")
+            .select("project_id")
+            .eq("asset_id", hash)
+            .limit(1)
+            .maybeSingle();
+
+          return { 
+            success: true, 
+            isDuplicate: true, 
+            originalProjectId: existingCommit?.project_id 
+          };
         }
       }
     } catch (err) {
@@ -257,6 +270,22 @@ export default function NewProjectPage() {
         if (mgData.action === "remix" || mgData.action === "direct_version" || mgData.action === "exact_match") {
           reused = true;
           storageUrl = mgData.parent_storage_url || storageUrl;
+          
+          if (mgData.action === "exact_match") {
+            const { data: existingCommit } = await supabase
+              .from("commits")
+              .select("project_id")
+              .eq("asset_id", hash)
+              .limit(1)
+              .maybeSingle();
+
+            return { 
+                success: true, 
+                isDuplicate: true, 
+                originalProjectId: existingCommit?.project_id 
+            };
+          }
+
           toast.info(`Media Guard: ${mgData.action.replace("_", " ")} detected. Linking original protection.`);
         }
       } else {
@@ -292,6 +321,8 @@ export default function NewProjectPage() {
     });
     
     if (cmtErr) throw cmtErr;
+
+    return { success: true, isDuplicate: false };
   };
 
   // Main Submit
@@ -350,12 +381,37 @@ export default function NewProjectPage() {
       // 2. Upload Files
       toast.loading(`Uploading ${files.length + (thumbnailFile ? 1 : 0)} files...`, { id: t });
       
+      let duplicateProjectId: string | undefined;
+
       for (const f of files) {
-        await processAndUploadFile(f, projectId, supabase, `Add ${f.name}`);
+        const result = await processAndUploadFile(f, projectId, supabase, `Add ${f.name}`);
+        if (result.isDuplicate) {
+           duplicateProjectId = result.originalProjectId;
+           break; // Stop on first duplicate
+        }
       }
       
-      if (thumbnailFile) {
-        await processAndUploadFile(thumbnailFile, projectId, supabase, `Add cover art ${thumbnailFile.name}`);
+      if (!duplicateProjectId && thumbnailFile) {
+        const result = await processAndUploadFile(thumbnailFile, projectId, supabase, `Add cover art ${thumbnailFile.name}`);
+        if (result.isDuplicate) {
+            duplicateProjectId = result.originalProjectId;
+        }
+      }
+
+      // 2b. Cleanup Duplicate Project
+      if (duplicateProjectId) {
+         toast.error("Duplicate content detected. This asset is already registered.", { id: t });
+         
+         // Delete the project record we just created
+         await supabase.from("projects").delete().eq("id", projectId);
+         
+         // Redirect to existing project if found, otherwise dashboard
+         if (duplicateProjectId) {
+           router.push(`/dashboard/projects/${duplicateProjectId}`);
+         } else {
+           router.push(`/dashboard/projects`);
+         }
+         return;
       }
 
       // 3. Add Collaborators

@@ -58,8 +58,8 @@ export function DiscoverySection({ initialAssets, initialCreators }: DiscoverySe
       if (!supabase) return;
       setIsLoadingTalent(true);
       try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session) {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
           setRecommendedTalent(initialCreators.slice(0, 4));
           return;
         }
@@ -68,7 +68,7 @@ export function DiscoverySection({ initialAssets, initialCreators }: DiscoverySe
         const { data: profile } = await supabase
           .from("profiles")
           .select("id, profession, embedding")
-          .eq("id", session.user.id)
+          .eq("id", user.id)
           .single();
 
         if (profile?.embedding && supabase) {
@@ -76,7 +76,7 @@ export function DiscoverySection({ initialAssets, initialCreators }: DiscoverySe
             query_embedding: profile.embedding,
             match_threshold: 0.5,
             match_count: 4,
-            excluded_id: session.user.id,
+            excluded_id: user.id,
             preferred_profession: profile.profession
           });
           

@@ -74,20 +74,20 @@ export default async function PublicProfilePage(props: PageProps) {
   const projects = (projectsData || []) as Project[];
 
   // 3. Check Connection Status with the viewer
-  const { data: { session } } = await supabase.auth.getSession();
+  const { data: { user } } = await supabase.auth.getUser();
   let connectionStatus = null;
   let isSender = false;
 
-  if (session && session.user.id !== profile.id) {
+  if (user && user.id !== profile.id) {
     const { data: conn } = await supabase
       .from("connections")
       .select("status, sender_id")
-      .or(`and(sender_id.eq.${session.user.id},receiver_id.eq.${profile.id}),and(sender_id.eq.${profile.id},receiver_id.eq.${session.user.id})`)
+      .or(`and(sender_id.eq.${user.id},receiver_id.eq.${profile.id}),and(sender_id.eq.${profile.id},receiver_id.eq.${user.id})`)
       .single();
     
     if (conn) {
       connectionStatus = conn.status;
-      isSender = conn.sender_id === session.user.id;
+      isSender = conn.sender_id === user.id;
     }
   }
 
@@ -158,7 +158,7 @@ export default async function PublicProfilePage(props: PageProps) {
               <div className="pb-2 flex flex-col items-end gap-3">
                 <AvailabilityBadge status={profile.availability_status} />
                 
-                {session && session.user.id !== profile.id && (
+                {user && user.id !== profile.id && (
                   <ProfileConnectionActions 
                     targetId={profile.id} 
                     initialStatus={connectionStatus} 
