@@ -124,12 +124,12 @@ export async function guardImage(
       }
 
       if (matches && matches.length > 0) {
-        const best = matches[0] as { id: string; distance: number; created_by?: string; metadata?: { storage_url?: string } };
+        const best = matches[0] as { id: string; distance: number; created_by: string; metadata?: { storage_url?: string } };
         parentId = best.id;
         similarity = best.distance;
         parentOwnerId = best.created_by;
         parentStorageUrl = (best.metadata as { storage_url?: string })?.storage_url;
-        console.log(`Media Guard: Similarity match found! Parent: ${parentId}, Distance: ${similarity}`);
+        console.log(`Media Guard: Similarity match found! Parent: ${parentId}, Distance: ${similarity}, Owner: ${parentOwnerId}`);
       } else {
         console.log("Media Guard: No similar assets found within DINOv2 threshold.");
       }

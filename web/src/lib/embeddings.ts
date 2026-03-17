@@ -14,18 +14,28 @@ export async function generateEmbedding(text: string): Promise<number[]> {
 
   try {
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: "text-embedding-004" });
+    const modelName = "text-embedding-004";
+    const model = genAI.getGenerativeModel({ model: modelName });
+    
+    console.log(`Embeddings: Generating embedding for text length ${text.length} using ${modelName}`);
+    
     const result = await model.embedContent({
       content: { parts: [{ text }], role: "user" },
       taskType: TaskType.RETRIEVAL_DOCUMENT,
       outputDimensionality: 1536
     } as import("@google/generative-ai").EmbedContentRequest & { outputDimensionality: number });
+    
     const embedding = result.embedding.values;
+    console.log(`Embeddings: Successfully generated ${embedding.length}d vector`);
     
     return embedding;
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error generating embedding with Gemini:", error);
-    throw new Error("Failed to generate embedding.");
+    // Log specific details if available
+    if (error.message?.includes("API_KEY_INVALID")) {
+      console.error("Critical: GOOGLE_GENERATIVE_AI_API_KEY is invalid.");
+    }
+    throw new Error(`Failed to generate embedding: ${error.message}`);
   }
 }
 
