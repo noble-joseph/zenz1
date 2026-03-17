@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { guardImage, guardAudio, guardVideo, findExactMatch, isFpcalcAvailable } from "@/lib/mediaGuard";
+import { guardImage, guardAudio, guardVideo, findExactMatch, checkFpcalcAvailability } from "@/lib/mediaGuard";
 import type { AssetMetadata } from "@/lib/types/database";
 
 /**
@@ -85,15 +85,20 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      console.log(`Media Guard: DNA check successful for ${file.name}`);
+      console.log(`Media Guard: DNA check successful for ${file.name} (${result?.action})`);
       return NextResponse.json(result);
     } catch (error: any) {
-      console.error("Media Guard API: Internal Failure:", error);
+      console.error("Media Guard API: DNA Check Internal Failure:", {
+        message: error.message,
+        stack: error.stack,
+        fileName: file.name,
+        type: file.type
+      });
       return NextResponse.json(
         { 
-          error: "Internal Processing Error", 
+          error: "Media Guard DNA Check Failed", 
           details: error.message,
-          stack: error.stack
+          stack: process.env.NODE_ENV === "development" ? error.stack : undefined
         },
         { status: 500 }
       );
@@ -113,22 +118,14 @@ export async function POST(req: NextRequest) {
  * Health check and capability diagnostic.
  */
 export async function GET() {
-  try {
-    const supabase = await createSupabaseServerClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    
-    const fpAvailable = await isFpcalcAvailable();
-    
-    return NextResponse.json({
-      status: "online",
-      authenticated: !!user,
-      capabilities: {
-        audio_fingerprinting: fpAvailable,
-        image_embeddings: "dinov2-vits14 (transformers.js)"
-      },
-      env: process.env.NODE_ENV
-    });
-  } catch (error: any) {
-    return NextResponse.json({ status: "error", message: error?.message }, { status: 500 });
-  }
+  return NextResponse.json({ 
+    status: "alive", 
+    timestamp: new Date().toISOString(),
+    env: process.env.NODE_ENV,
+    secrets_check: {
+      supabase: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
+      service_role: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
+      gemini: !!process.env.GOOGLE_GENERATIVE_AI_API_KEY
+    }
+  });
 }

@@ -51,28 +51,43 @@ async function getProcessor() {
  */
 export async function generateVibeVector(
   imageBuffer: Buffer,
-): Promise<number[]> {
-  const [model, processor] = await Promise.all([
-    getModel(),
-    getProcessor(),
-  ]);
+): Promise<number[] | null> {
+  if (process.env.SKIP_HEAVY_AI === "true") {
+    console.log("Media Guard: SKIP_HEAVY_AI is enabled, skipping DINOv2.");
+    return null;
+  }
 
-  // Decode image from buffer
-  const blob = new Blob([new Uint8Array(imageBuffer)]);
-  const image = await RawImage.fromBlob(blob);
+  let model, processor;
+  try {
+    [model, processor] = await Promise.all([
+      getModel(),
+      getProcessor(),
+    ]);
+  } catch (err: any) {
+    console.error("Media Guard: Failed to load DINOv2 model/processor. This often happens on serverless environments due to resource limits.", err);
+    return null; // Fallback gracefully
+  }
 
-  // Process image into model-ready tensors
-  const inputs = await processor(image);
+  try {
+    // Decode image from buffer
+    const blob = new Blob([new Uint8Array(imageBuffer)]);
+    const image = await RawImage.fromBlob(blob);
 
-  // Run inference
-  const outputs = await model(inputs);
+    // Process image into model-ready tensors
+    const inputs = await processor(image);
 
-  // Extract the [CLS] token embedding (first token of last_hidden_state)
-  // Shape: [1, num_patches+1, 768] → take [0, 0, :]
-  const lastHiddenState = outputs.last_hidden_state;
-  const embedding: number[] = Array.from(
-    lastHiddenState.data.slice(0, 768) as Float32Array,
-  );
+    // Run inference
+    const outputs = await model(inputs);
 
-  return embedding;
+    // Extract the [CLS] token embedding (first token of last_hidden_state)
+    const lastHiddenState = outputs.last_hidden_state;
+    const embedding: number[] = Array.from(
+      lastHiddenState.data.slice(0, 768) as Float32Array,
+    );
+
+    return embedding;
+  } catch (err) {
+    console.error("Media Guard: DINOv2 inference failed:", err);
+    return null;
+  }
 }

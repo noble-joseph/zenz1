@@ -30,12 +30,17 @@ export async function generateEmbedding(text: string): Promise<number[]> {
     
     return embedding;
   } catch (error: any) {
-    console.error("Error generating embedding with Gemini:", error);
+    console.error("Error generating embedding with Gemini:", {
+      message: error.message,
+      status: error.status,
+      stack: error.stack
+    });
     // Log specific details if available
     if (error.message?.includes("API_KEY_INVALID")) {
       console.error("Critical: GOOGLE_GENERATIVE_AI_API_KEY is invalid.");
     }
-    throw new Error(`Failed to generate embedding: ${error.message}`);
+    // Return null instead of throwing to allow caller to handle gracefully
+    return [];
   }
 }
 

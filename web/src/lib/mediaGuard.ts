@@ -10,15 +10,29 @@
 
 import { createHash } from "node:crypto";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
-import { computePHash, hammingDistance } from "@/lib/phash";
-import { generateVibeVector } from "@/lib/vibeVector";
-import {
-  generateFingerprint,
-  isFpcalcAvailable,
-  jaccardSimilarity,
-} from "@/lib/fingerprint";
-export { isFpcalcAvailable };
 import type { AssetMetadata, GuardResult, MediaAsset } from "@/lib/types/database";
+
+// Lazy-loaded dependencies
+const getPHash = async () => (await import("@/lib/phash")).computePHash;
+const getHammingDistance = async () => (await import("@/lib/phash")).hammingDistance;
+const getGenerateVibeVector = async () => (await import("@/lib/vibeVector")).generateVibeVector;
+const getFingerprintTools = async () => {
+  const tools = await import("@/lib/fingerprint");
+  return {
+    generateFingerprint: tools.generateFingerprint,
+    isFpcalcAvailable: tools.isFpcalcAvailable,
+    jaccardSimilarity: tools.jaccardSimilarity,
+  };
+};
+
+/**
+ * Check whether `fpcalc` is available on the system.
+ * Exported separately to allow Route Handlers to check health without triggering heavy AI imports.
+ */
+export async function checkFpcalcAvailability(): Promise<boolean> {
+  const { isFpcalcAvailable } = await getFingerprintTools();
+  return isFpcalcAvailable();
+}
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -61,11 +75,11 @@ async function insertMediaAsset(
 
   if (error || !data) {
     if (error?.code === "23505") { // 23505 is PostgreSQL unique constraint violation
-      // Rare race condition: another request just inserted this exact hash!
       const existing = await findExactMatch(row.sha256_hash);
       if (existing) return existing as MediaAsset;
     }
-    throw new Error(`Failed to insert media_asset: ${error?.message ?? "unknown"}`);
+    console.error("Media Guard: Database Insert Error:", error);
+    throw new Error(`Media Guard Database Failure: ${error?.message ?? "Failed to save asset DNA"}`);
   }
   return data as MediaAsset;
 }
@@ -91,6 +105,7 @@ export async function guardImage(
   // 2. Compute pHash (best-effort, non-blocking of flow)
   let pHash: string | null = null;
   try {
+    const computePHash = await getPHash();
     pHash = await computePHash(imageBuffer);
   } catch (err) {
     console.warn("Media Guard: pHash computation failed, continuing:", err);
@@ -99,6 +114,7 @@ export async function guardImage(
   // 3. Generate DINOv2 vibe_vector
   let vibeVector: number[] | null = null;
   try {
+    const generateVibeVector = await getGenerateVibeVector();
     vibeVector = await generateVibeVector(imageBuffer);
   } catch (err) {
     console.warn("Media Guard: DINOv2 embedding failed, continuing:", err);
@@ -148,11 +164,8 @@ export async function guardImage(
       .not("p_hash", "is", null);
 
     if (pHashMatches) {
-        // Simple hamming distance comparison would be slow in JS for many assets,
-        // but for now we iterate since pHash check is a fallback.
-        // Stage 3 would implement this as a Postgres extension or similar.
+        const hammingDistance = await getHammingDistance();
         for (const row of pHashMatches) {
-            // Hamming distance logic...
             const distance = hammingDistance(pHash, row.p_hash as string);
             if (distance <= PHASH_THRESHOLD) {
                 parentId = row.id;
@@ -233,6 +246,7 @@ export async function guardAudio(
   // 2. Generate Chromaprint (requires fpcalc)
   let audioFingerprint: string | null = null;
 
+  const { isFpcalcAvailable, generateFingerprint, jaccardSimilarity } = await getFingerprintTools();
   const fpcalcReady = await isFpcalcAvailable();
   if (fpcalcReady) {
     try {

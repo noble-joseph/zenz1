@@ -31,7 +31,11 @@ export async function middleware(request: NextRequest) {
 
   // Refresh the session — this is the critical call.
   // Do NOT remove: without this, sessions expire silently.
-  await supabase.auth.getUser();
+  try {
+    await supabase.auth.getUser();
+  } catch (err) {
+    console.error("Middleware Auth Error:", err);
+  }
 
   return supabaseResponse;
 }
