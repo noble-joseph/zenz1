@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { guardImage, guardAudio, guardVideo, findExactMatch, checkFpcalcAvailability } from "@/lib/mediaGuard";
+import { guardImage, guardAudio, guardVideo, findExactMatch, checkFpcalcAvailability, getOriginalProjectForAsset } from "@/lib/mediaGuard";
 import type { AssetMetadata } from "@/lib/types/database";
 
 /**
@@ -34,9 +34,11 @@ export async function POST(req: NextRequest) {
     if (hash && !file) {
       const match = await findExactMatch(hash);
       if (match) {
+        const originalProjectId = await getOriginalProjectForAsset(hash);
         return NextResponse.json({
           action: "exact_match",
           asset: match,
+          original_project_id: originalProjectId || undefined
         });
       }
       return NextResponse.json({ action: "not_found" });

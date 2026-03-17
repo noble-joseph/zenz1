@@ -233,18 +233,10 @@ export default function NewProjectPage() {
           storageUrl = preData.asset.storage_url;
           reused = true;
           
-          // Try to find if this asset already belongs to a project
-          const { data: existingCommit } = await supabase
-            .from("commits")
-            .select("project_id")
-            .eq("asset_id", hash)
-            .limit(1)
-            .maybeSingle();
-
           return { 
             success: true, 
             isDuplicate: true, 
-            originalProjectId: existingCommit?.project_id 
+            originalProjectId: preData.original_project_id 
           };
         }
       }
@@ -272,17 +264,10 @@ export default function NewProjectPage() {
           storageUrl = mgData.parent_storage_url || storageUrl;
           
           if (mgData.action === "exact_match") {
-            const { data: existingCommit } = await supabase
-              .from("commits")
-              .select("project_id")
-              .eq("asset_id", hash)
-              .limit(1)
-              .maybeSingle();
-
             return { 
                 success: true, 
                 isDuplicate: true, 
-                originalProjectId: existingCommit?.project_id 
+                originalProjectId: mgData.original_project_id 
             };
           }
 

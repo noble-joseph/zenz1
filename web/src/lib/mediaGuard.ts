@@ -41,6 +41,23 @@ function sha256(buffer: Buffer): string {
 }
 
 /**
+ * find the first project associated with a given asset hash.
+ * Uses Admin client to bypass RLS.
+ */
+export async function getOriginalProjectForAsset(hash: string): Promise<string | null> {
+  const supabase = createSupabaseAdminClient();
+  const { data } = await supabase
+    .from("commits")
+    .select("project_id")
+    .eq("asset_id", hash)
+    .order("created_at", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+
+  return data?.project_id || null;
+}
+
+/**
  * Check if a media asset with this exact hash already exists.
  */
 export async function findExactMatch(hash: string): Promise<(MediaAsset & { storage_url?: string }) | null> {
@@ -99,7 +116,13 @@ export async function guardImage(
   const hash = sha256(imageBuffer);
   const existing = await findExactMatch(hash);
   if (existing) {
-    return { action: "exact_match", asset: existing, similarity: 0 };
+    const originalProjectId = await getOriginalProjectForAsset(hash);
+    return { 
+      action: "exact_match", 
+      asset: { ...existing, storage_url: existing.storage_url } as any, 
+      similarity: 0,
+      original_project_id: originalProjectId || undefined
+    };
   }
 
   // 2. Compute pHash (best-effort, non-blocking of flow)
@@ -216,7 +239,7 @@ export async function guardImage(
     asset: {
       ...asset,
       storage_url: (asset.metadata as { storage_url?: string })?.storage_url
-    },
+    } as any,
     similarity,
     parent_id: parentId ?? undefined,
     parent_owner_id: parentOwnerId,
@@ -240,7 +263,13 @@ export async function guardAudio(
   const hash = sha256(audioBuffer);
   const existing = await findExactMatch(hash);
   if (existing) {
-    return { action: "exact_match", asset: existing, similarity: 0 };
+    const originalProjectId = await getOriginalProjectForAsset(hash);
+    return { 
+      action: "exact_match", 
+      asset: { ...existing, storage_url: existing.storage_url } as any, 
+      similarity: 0,
+      original_project_id: originalProjectId || undefined
+    };
   }
 
   // 2. Generate Chromaprint (requires fpcalc)
@@ -327,7 +356,7 @@ export async function guardAudio(
     asset: {
       ...asset,
       storage_url: (asset.metadata as { storage_url?: string })?.storage_url
-    },
+    } as any,
     similarity,
     parent_id: parentId ?? undefined,
     parent_owner_id: parentOwnerId,
@@ -354,12 +383,16 @@ export async function guardVideo(
   const hash = sha256(videoBuffer);
   const existing = await findExactMatch(hash);
   if (existing) {
-    return { action: "exact_match", asset: existing, similarity: 0 };
+    const originalProjectId = await getOriginalProjectForAsset(hash);
+    return { 
+      action: "exact_match", 
+      asset: { ...existing, storage_url: existing.storage_url } as any, 
+      similarity: 0,
+      original_project_id: originalProjectId || undefined
+    };
   }
 
-    // Simplified Video Guard: SHA-256 match only as per user feedback
-    // Keyframe extraction logic removed to reduce complexity/overhead
-
+  // Simplified Video Guard: SHA-256 match only as per user feedback
 
   const asset = await insertMediaAsset({
     sha256_hash: hash,
@@ -372,17 +405,16 @@ export async function guardVideo(
     metadata: { ...metadata, storage_url: storageUrl },
   });
 
-  const action: GuardResult["action"] = "new";
-
   return {
-    action,
+    action: "new",
     asset: {
       ...asset,
       storage_url: (asset.metadata as { storage_url?: string })?.storage_url
-    },
+    } as any,
     similarity: undefined,
     parent_id: undefined,
     parent_owner_id: undefined,
-    parent_storage_url: undefined,
+    parent_storage_url: parentStorageUrl,
+    original_project_id: undefined,
   };
 }
