@@ -197,4 +197,5 @@ export interface GuardResult {
   parent_id?: string;
   parent_owner_id?: string;
   parent_storage_url?: string;
+  original_project_id?: string;
 }

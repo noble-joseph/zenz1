@@ -23,7 +23,11 @@ import {
   Trophy,
   Languages,
   History,
-  X
+  X,
+  Loader2,
+  Trash2,
+  Calendar,
+  Building2
 } from "lucide-react";
 import { toast } from "sonner";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
@@ -36,14 +40,28 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
+import { rewriteBioAction } from "@/app/actions/ai";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
+
+interface ExperienceEntry {
+  title: string;
+  company: string;
+  start_date: string;
+  end_date: string;
+  description: string;
+  current: boolean;
+}
 
 export default function SettingsPage() {
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [userEmail, setUserEmail] = useState<string>("");
+  const [aiRewriting, setAiRewriting] = useState(false);
+  const [aiSuggestedBio, setAiSuggestedBio] = useState<string | null>(null);
+  const [showExpForm, setShowExpForm] = useState(false);
+  const [newExp, setNewExp] = useState<ExperienceEntry>({ title: "", company: "", start_date: "", end_date: "", description: "", current: false });
 
   useEffect(() => {
     void loadProfile();
@@ -232,8 +250,59 @@ export default function SettingsPage() {
 
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Biography</Label>
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Biography</Label>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="rounded-full h-8 px-4 gap-2 text-[10px] font-black uppercase tracking-widest"
+                      disabled={aiRewriting || !profile?.bio}
+                      onClick={async () => {
+                        setAiRewriting(true);
+                        const result = await rewriteBioAction(profile?.bio || "", profile?.profession || null);
+                        if (result.ok && result.data) {
+                          setAiSuggestedBio((result.data as { bio: string }).bio);
+                        } else {
+                          toast.error((result as { error?: string }).error || "AI rewrite failed");
+                        }
+                        setAiRewriting(false);
+                      }}
+                    >
+                      {aiRewriting ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
+                      {aiRewriting ? "Rewriting..." : "AI Rewrite"}
+                    </Button>
+                  </div>
                   <Textarea name="bio" value={profile?.bio || ""} onChange={handleInputChange} className="min-h-[120px] rounded-2xl border-2 p-4 text-base focus-visible:ring-primary" placeholder="Share your story, your vibe, and what drives your creativity..." />
+                  {aiSuggestedBio && (
+                    <div className="p-4 rounded-2xl bg-primary/5 border-2 border-primary/20 space-y-3">
+                      <div className="flex items-center gap-2">
+                        <Sparkles className="h-4 w-4 text-primary" />
+                        <span className="text-xs font-black uppercase tracking-widest text-primary">AI Suggestion</span>
+                      </div>
+                      <p className="text-sm text-foreground leading-relaxed">{aiSuggestedBio}</p>
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          className="rounded-full h-8 px-6 gap-2 shadow-lg shadow-primary/20"
+                          onClick={() => {
+                            setProfile((prev: any) => ({ ...prev, bio: aiSuggestedBio }));
+                            setAiSuggestedBio(null);
+                            toast.success("AI bio applied! Don't forget to save.");
+                          }}
+                        >
+                          Accept
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="rounded-full h-8 px-6"
+                          onClick={() => setAiSuggestedBio(null)}
+                        >
+                          Discard
+                        </Button>
+                      </div>
+                    </div>
+                  )}
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
@@ -478,20 +547,154 @@ export default function SettingsPage() {
         <TabsContent value="experience" className="space-y-8">
             <Card className="rounded-[2.5rem] border-2 bg-background shadow-lg overflow-hidden">
                 <CardHeader className="p-8">
-                    <CardTitle className="text-xl font-black">Professional Timeline</CardTitle>
-                    <CardDescription>Summary of your career highlights and key projects.</CardDescription>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <CardTitle className="text-xl font-black">Professional Timeline</CardTitle>
+                        <CardDescription>Summary of your career highlights and key projects.</CardDescription>
+                      </div>
+                      <Button
+                        variant="outline"
+                        className="rounded-full h-10 px-6 gap-2 font-bold"
+                        onClick={() => setShowExpForm(!showExpForm)}
+                      >
+                        {showExpForm ? <X className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+                        {showExpForm ? "Cancel" : "Add Milestone"}
+                      </Button>
+                    </div>
                 </CardHeader>
                 <CardContent className="p-8 pt-0 space-y-6">
-                    <div className="p-6 rounded-3xl bg-muted/10 border-2 border-dashed flex flex-col items-center justify-center text-center gap-4">
-                        <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center">
-                            <Plus className="h-6 w-6 text-muted-foreground" />
+                    {/* Add Experience Form */}
+                    {showExpForm && (
+                      <div className="p-6 rounded-3xl bg-primary/5 border-2 border-primary/20 space-y-5">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Sparkles className="h-4 w-4 text-primary" />
+                          <span className="text-xs font-black uppercase tracking-widest text-primary">New Milestone</span>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Role / Title</Label>
+                            <Input
+                              placeholder="e.g. Lead Cinematographer"
+                              className="h-12 rounded-xl border-2"
+                              value={newExp.title}
+                              onChange={(e) => setNewExp(p => ({ ...p, title: e.target.value }))}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Company / Production</Label>
+                            <Input
+                              placeholder="e.g. Netflix Studios"
+                              className="h-12 rounded-xl border-2"
+                              value={newExp.company}
+                              onChange={(e) => setNewExp(p => ({ ...p, company: e.target.value }))}
+                            />
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <div className="space-y-2">
+                            <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Start Date</Label>
+                            <Input
+                              type="month"
+                              className="h-12 rounded-xl border-2"
+                              value={newExp.start_date}
+                              onChange={(e) => setNewExp(p => ({ ...p, start_date: e.target.value }))}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground">End Date</Label>
+                            <Input
+                              type="month"
+                              className="h-12 rounded-xl border-2"
+                              value={newExp.end_date}
+                              disabled={newExp.current}
+                              onChange={(e) => setNewExp(p => ({ ...p, end_date: e.target.value }))}
+                            />
+                          </div>
+                          <div className="flex items-end pb-1">
+                            <div className="flex items-center gap-3">
+                              <Switch
+                                checked={newExp.current}
+                                onCheckedChange={(v) => setNewExp(p => ({ ...p, current: v, end_date: v ? "" : p.end_date }))}
+                              />
+                              <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Current Role</Label>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Description</Label>
+                          <Textarea
+                            placeholder="What you did, what you achieved..."
+                            className="min-h-[80px] rounded-xl border-2"
+                            value={newExp.description}
+                            onChange={(e) => setNewExp(p => ({ ...p, description: e.target.value }))}
+                          />
+                        </div>
+                        <Button
+                          className="rounded-full h-11 px-8 font-bold shadow-lg shadow-primary/20 gap-2"
+                          disabled={!newExp.title || !newExp.company}
+                          onClick={() => {
+                            const exp = [...(profile?.experience || []), newExp];
+                            setProfile((prev: any) => ({ ...prev, experience: exp }));
+                            setNewExp({ title: "", company: "", start_date: "", end_date: "", description: "", current: false });
+                            setShowExpForm(false);
+                            toast.success("Milestone added! Don't forget to save.");
+                          }}
+                        >
+                          <Plus className="h-4 w-4" /> Add to Timeline
+                        </Button>
+                      </div>
+                    )}
+
+                    {/* Existing Entries */}
+                    {(profile?.experience || []).length === 0 && !showExpForm ? (
+                      <div className="p-12 rounded-3xl bg-muted/10 border-2 border-dashed flex flex-col items-center justify-center text-center gap-4">
+                        <div className="h-16 w-16 rounded-full bg-muted/30 flex items-center justify-center">
+                            <Briefcase className="h-8 w-8 text-muted-foreground opacity-30" />
                         </div>
                         <div>
-                            <p className="font-bold">Add Career Milestone</p>
-                            <p className="text-sm text-muted-foreground max-w-xs mx-auto">This complex data type is currently read-only in this beta but will be fully editable in the next patch.</p>
+                           <p className="font-black text-lg">Build Your Timeline</p>
+                           <p className="text-sm text-muted-foreground max-w-xs mx-auto mt-1">Add career milestones to showcase your professional journey to hirers.</p>
                         </div>
-                        <Button disabled variant="outline" className="rounded-full px-8">Coming Soon</Button>
-                    </div>
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        {(profile?.experience || []).map((exp: ExperienceEntry, idx: number) => (
+                          <div key={idx} className="group p-6 rounded-2xl border-2 bg-background hover:border-primary/20 transition-all relative">
+                            <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 rounded-full text-destructive hover:bg-destructive/10"
+                                onClick={() => {
+                                  const updated = (profile?.experience || []).filter((_: any, i: number) => i !== idx);
+                                  setProfile((prev: any) => ({ ...prev, experience: updated }));
+                                  toast.success("Milestone removed! Don't forget to save.");
+                                }}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                            <div className="flex items-start gap-5">
+                              <div className="h-12 w-12 rounded-2xl bg-primary/10 flex items-center justify-center shrink-0">
+                                <Building2 className="h-6 w-6 text-primary" />
+                              </div>
+                              <div className="flex-1">
+                                <h4 className="font-black text-lg">{exp.title}</h4>
+                                <p className="text-sm text-muted-foreground font-bold">{exp.company}</p>
+                                <div className="flex items-center gap-2 mt-1">
+                                  <Calendar className="h-3 w-3 text-muted-foreground" />
+                                  <span className="text-xs text-muted-foreground">
+                                    {exp.start_date || "N/A"} — {exp.current ? "Present" : exp.end_date || "N/A"}
+                                  </span>
+                                  {exp.current && <Badge className="bg-emerald-500/10 text-emerald-600 border-emerald-200 text-[9px] font-black px-2">CURRENT</Badge>}
+                                </div>
+                                {exp.description && <p className="text-sm text-muted-foreground mt-3 leading-relaxed">{exp.description}</p>}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                 </CardContent>
             </Card>
         </TabsContent>

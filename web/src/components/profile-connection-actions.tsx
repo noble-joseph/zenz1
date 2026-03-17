@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { UserPlus, MessageSquare, Clock, ShieldCheck, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -19,6 +20,7 @@ export function ProfileConnectionActions({
   initialStatus, 
   isSender: initialIsSender 
 }: ProfileConnectionActionsProps) {
+  const router = useRouter();
   const [status, setStatus] = useState<ConnectionStatus | null>(initialStatus);
   const [isPending, setIsPending] = useState(false);
 
@@ -55,7 +57,12 @@ export function ProfileConnectionActions({
           Connect
         </Button>
       )}
-      <Button size="sm" variant="outline" className="h-9 rounded-xl gap-2 border-zinc-200">
+      <Button 
+        size="sm" 
+        variant="outline" 
+        className="h-9 rounded-xl gap-2 border-zinc-200"
+        onClick={() => router.push(`/dashboard/messages?to=${targetId}`)}
+      >
         <MessageSquare className="h-4 w-4" /> Message
       </Button>
     </div>

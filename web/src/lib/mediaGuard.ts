@@ -414,7 +414,7 @@ export async function guardVideo(
     similarity: undefined,
     parent_id: undefined,
     parent_owner_id: undefined,
-    parent_storage_url: parentStorageUrl,
+    parent_storage_url: undefined,
     original_project_id: undefined,
   };
 }

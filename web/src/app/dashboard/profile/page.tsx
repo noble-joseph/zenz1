@@ -213,10 +213,48 @@ export default function PortfolioPage() {
                            </div>
                         </div>
                         <div className="flex items-center gap-2">
-                           <Button variant="ghost" size="icon" className="rounded-xl h-11 w-11 hover:bg-primary/10 hover:text-primary transition-all">
+                           <Button 
+                             variant="ghost" 
+                             size="icon" 
+                             className="rounded-xl h-11 w-11 hover:bg-primary/10 hover:text-primary transition-all disabled:opacity-30"
+                             disabled={idx === 0}
+                             onClick={async () => {
+                               const sections = [...(profile.portfolio_order?.sections || [])];
+                               [sections[idx - 1], sections[idx]] = [sections[idx], sections[idx - 1]];
+                               const newOrder = { ...profile.portfolio_order, sections };
+                               setProfile((prev: any) => ({ ...prev, portfolio_order: newOrder }));
+                               const supabase = createSupabaseBrowserClient();
+                               if (supabase) {
+                                 const { data: { user } } = await supabase.auth.getUser();
+                                 if (user) {
+                                   await supabase.from("profiles").update({ portfolio_order: newOrder }).eq("id", user.id);
+                                   toast.success("Section order updated");
+                                 }
+                               }
+                             }}
+                           >
                               <MoveUp className="h-5 w-5" />
                            </Button>
-                           <Button variant="ghost" size="icon" className="rounded-xl h-11 w-11 hover:bg-primary/10 hover:text-primary transition-all">
+                           <Button 
+                             variant="ghost" 
+                             size="icon" 
+                             className="rounded-xl h-11 w-11 hover:bg-primary/10 hover:text-primary transition-all disabled:opacity-30"
+                             disabled={idx === (profile?.portfolio_order?.sections?.length || 0) - 1}
+                             onClick={async () => {
+                               const sections = [...(profile.portfolio_order?.sections || [])];
+                               [sections[idx], sections[idx + 1]] = [sections[idx + 1], sections[idx]];
+                               const newOrder = { ...profile.portfolio_order, sections };
+                               setProfile((prev: any) => ({ ...prev, portfolio_order: newOrder }));
+                               const supabase = createSupabaseBrowserClient();
+                               if (supabase) {
+                                 const { data: { user } } = await supabase.auth.getUser();
+                                 if (user) {
+                                   await supabase.from("profiles").update({ portfolio_order: newOrder }).eq("id", user.id);
+                                   toast.success("Section order updated");
+                                 }
+                               }
+                             }}
+                           >
                               <MoveDown className="h-5 w-5" />
                            </Button>
                         </div>
@@ -230,7 +268,7 @@ export default function PortfolioPage() {
                     </div>
                     <div>
                        <p className="font-bold text-primary">Intelligent Layout Optimizer</p>
-                       <p className="text-xs text-primary/70">Our AI suggests placing 'Projects' higher based on your latest activity.</p>
+                       <p className="text-xs text-primary/70">Our AI suggests placing &apos;Projects&apos; higher based on your latest activity.</p>
                     </div>
                  </div>
               </CardContent>
@@ -240,3 +278,4 @@ export default function PortfolioPage() {
     </div>
   );
 }
+

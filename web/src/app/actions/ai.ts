@@ -110,3 +110,156 @@ export async function generateProjectMetadataAction(
   return { ok: true, data: generateLocalMetadata(files, profession) };
 }
 
+/**
+ * AI Bio Rewrite — uses Gemini to generate a polished, professional bio.
+ */
+export async function rewriteBioAction(currentBio: string, profession: string | null) {
+  const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
+  if (!apiKey) {
+    return { ok: false, error: "AI API key not configured" };
+  }
+
+  const prompt = `
+    You are an expert copywriter for creative professionals.
+    Rewrite the following bio for a ${profession || "creative professional"} to make it more compelling, SEO-friendly, and professional.
+    Keep the same personality and facts but make it polished and engaging. Max 200 words.
+
+    Original bio: "${currentBio}"
+
+    Output strictly valid JSON with no markdown formatting:
+    { "bio": "rewritten bio text" }
+  `;
+
+  const { GoogleGenerativeAI } = await import("@google/generative-ai");
+  const genAI = new GoogleGenerativeAI(apiKey);
+  const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-lite" });
+
+  try {
+    const result = await model.generateContent(prompt);
+    const text = result.response.text().trim().replace(/^```json/i, "").replace(/```$/i, "").trim();
+    const data = JSON.parse(text) as { bio: string };
+    return { ok: true, data };
+  } catch (err: unknown) {
+    console.error("AI Bio Rewrite Error:", err);
+    return { ok: false, error: "AI generation failed. Please try again." };
+  }
+}
+
+/**
+ * AI SEO Caption — generates an SEO-optimized caption for portfolio items.
+ */
+export async function generateSEOCaptionAction(title: string, description: string, tags: string[]) {
+  const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
+  if (!apiKey) {
+    return { ok: false, error: "AI API key not configured" };
+  }
+
+  const prompt = `
+    Generate an SEO-optimized, compelling caption for a creative project:
+    Title: "${title}"
+    Description: "${description}"
+    Tags: ${tags.join(", ")}
+
+    The caption should be professional, keyword-rich, and under 160 characters (ideal for meta descriptions).
+
+    Output strictly valid JSON with no markdown formatting:
+    { "caption": "seo caption text" }
+  `;
+
+  const { GoogleGenerativeAI } = await import("@google/generative-ai");
+  const genAI = new GoogleGenerativeAI(apiKey);
+  const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-lite" });
+
+  try {
+    const result = await model.generateContent(prompt);
+    const text = result.response.text().trim().replace(/^```json/i, "").replace(/```$/i, "").trim();
+    const data = JSON.parse(text) as { caption: string };
+    return { ok: true, data };
+  } catch (err: unknown) {
+    console.error("AI SEO Caption Error:", err);
+    return { ok: false, error: "AI generation failed." };
+  }
+}
+
+/**
+ * AI Network Insights — generates analytical insights from network data.
+ */
+export async function generateNetworkInsightsAction(data: {
+  totalConnections: number;
+  verifiedCount: number;
+  velocity30: number;
+  velocity7: number;
+  topRoles: [string, number][];
+  influenceScore: number;
+  profession: string | null;
+}) {
+  const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
+  if (!apiKey) {
+    // Fallback to rule-based insights
+    return { ok: true, data: generateLocalInsights(data) };
+  }
+
+  const prompt = `
+    You are an AI career advisor for creative professionals. Analyze this creator's network data and provide exactly 3 actionable insights.
+
+    Profile: ${data.profession || "Creative Professional"}
+    Influence Score: ${data.influenceScore}
+    Total Connections: ${data.totalConnections}
+    Verified Credits: ${data.verifiedCount}
+    Last 30 days new credits: ${data.velocity30}
+    Last 7 days new credits: ${data.velocity7}
+    Top Roles: ${data.topRoles.map(([r, c]) => `${r} (${c})`).join(", ") || "None yet"}
+
+    Provide 3 short insights (max 1 sentence each) about network growth, opportunities, and recommendations.
+    
+    Output strictly valid JSON with no markdown formatting:
+    { "insights": [
+      { "title": "short title", "text": "insight text", "type": "growth|opportunity|warning" }
+    ] }
+  `;
+
+  const { GoogleGenerativeAI } = await import("@google/generative-ai");
+  const genAI = new GoogleGenerativeAI(apiKey);
+  const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-lite" });
+
+  try {
+    const result = await model.generateContent(prompt);
+    const text = result.response.text().trim().replace(/^```json/i, "").replace(/```$/i, "").trim();
+    const parsed = JSON.parse(text) as { insights: { title: string; text: string; type: string }[] };
+    return { ok: true, data: parsed };
+  } catch (err: unknown) {
+    console.error("AI Network Insights Error:", err);
+    return { ok: true, data: generateLocalInsights(data) };
+  }
+}
+
+function generateLocalInsights(data: {
+  totalConnections: number;
+  verifiedCount: number;
+  velocity30: number;
+  velocity7: number;
+  topRoles: [string, number][];
+  influenceScore: number;
+}) {
+  const insights: { title: string; text: string; type: string }[] = [];
+
+  if (data.velocity30 > 0) {
+    insights.push({ title: "Growing Network", text: `You've gained ${data.velocity30} new verified credits this month — keep the momentum going!`, type: "growth" });
+  } else {
+    insights.push({ title: "Network Stalled", text: "No new verified credits in the last 30 days. Consider reaching out to past collaborators.", type: "warning" });
+  }
+
+  if (data.topRoles.length > 0) {
+    insights.push({ title: "Specialist Profile", text: `You're most recognized as a "${data.topRoles[0][0]}" — lean into this strength in your portfolio.`, type: "opportunity" });
+  } else {
+    insights.push({ title: "Build Your Identity", text: "Start collaborating on projects to build recognized specializations.", type: "opportunity" });
+  }
+
+  if (data.influenceScore < 5) {
+    insights.push({ title: "Early Stage", text: "Your influence score is just starting. Each verified credit increases your visibility to hirers.", type: "growth" });
+  } else {
+    insights.push({ title: "Rising Creator", text: `With an influence score of ${data.influenceScore}, you're building real credibility in the industry.`, type: "growth" });
+  }
+
+  return { insights };
+}
