@@ -41,6 +41,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { rewriteBioAction } from "@/app/actions/ai";
+import { useTheme } from "next-themes";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -62,8 +63,11 @@ export default function SettingsPage() {
   const [aiSuggestedBio, setAiSuggestedBio] = useState<string | null>(null);
   const [showExpForm, setShowExpForm] = useState(false);
   const [newExp, setNewExp] = useState<ExperienceEntry>({ title: "", company: "", start_date: "", end_date: "", description: "", current: false });
+  const { theme, setTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    setMounted(true);
     void loadProfile();
   }, []);
 
@@ -709,19 +713,25 @@ export default function SettingsPage() {
                  </CardHeader>
                  <CardContent className="p-8 pt-0 space-y-6">
                     <div className="grid grid-cols-3 gap-4">
-                       <button className="flex flex-col items-center gap-3 p-4 rounded-2xl border-2 border-primary bg-primary/5 transition-all">
+                       <button 
+                          onClick={() => setTheme("light")}
+                          className={`flex flex-col items-center gap-3 p-4 rounded-2xl border-2 transition-all ${mounted && theme === "light" ? "border-primary bg-primary/5" : "border-transparent bg-muted/20 hover:border-muted-foreground/20"}`}>
                           <div className="h-12 w-full bg-background rounded-lg border flex items-center justify-center">
                              <Sun className="h-5 w-5 text-amber-500" />
                           </div>
                           <span className="text-xs font-bold uppercase tracking-widest">Light</span>
                        </button>
-                       <button className="flex flex-col items-center gap-3 p-4 rounded-2xl border-2 border-transparent bg-muted/20 hover:border-muted-foreground/20 transition-all cursor-not-allowed opacity-50">
+                       <button 
+                          onClick={() => setTheme("dark")}
+                          className={`flex flex-col items-center gap-3 p-4 rounded-2xl border-2 transition-all ${mounted && theme === "dark" ? "border-primary bg-primary/5" : "border-transparent bg-muted/20 hover:border-muted-foreground/20"}`}>
                           <div className="h-12 w-full bg-zinc-950 rounded-lg flex items-center justify-center">
                              <Moon className="h-5 w-5 text-primary" />
                           </div>
                           <span className="text-xs font-bold uppercase tracking-widest">Dark</span>
                        </button>
-                       <button className="flex flex-col items-center gap-3 p-4 rounded-2xl border-2 border-transparent bg-muted/20 hover:border-muted-foreground/20 transition-all cursor-not-allowed opacity-50">
+                       <button 
+                          onClick={() => setTheme("system")}
+                          className={`flex flex-col items-center gap-3 p-4 rounded-2xl border-2 transition-all ${mounted && theme === "system" ? "border-primary bg-primary/5" : "border-transparent bg-muted/20 hover:border-muted-foreground/20"}`}>
                           <div className="h-12 w-full bg-gradient-to-br from-zinc-200 to-zinc-800 rounded-lg flex items-center justify-center">
                              <Laptop className="h-5 w-5 text-zinc-400" />
                           </div>

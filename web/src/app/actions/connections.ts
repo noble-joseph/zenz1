@@ -25,7 +25,7 @@ export async function sendConnectionRequest(receiverId: string) {
       sender_id: user.id,
       receiver_id: receiverId,
       status: "pending"
-    });
+    }, { onConflict: "sender_id,receiver_id" });
 
   if (error) {
     console.error("sendConnectionRequest error:", error);

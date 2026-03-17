@@ -15,6 +15,7 @@ import {
   Sparkles,
   BadgeCheck,
   Mail,
+  LineChart,
 } from "lucide-react";
 
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
@@ -33,9 +34,10 @@ import type { Profile } from "@/lib/types/database";
 const NAV_ITEMS = [
   { href: "/dashboard", label: "Feed", icon: ImageIcon },
   { href: "/dashboard/explore", label: "Explore", icon: FolderGit2 },
+  { href: "/dashboard/analytics", label: "Analytics", icon: LineChart },
   { href: "/dashboard/messages", label: "Messages", icon: Mail },
   { href: "/dashboard/profile", label: "Portfolio", icon: Users },
-  { href: "/dashboard/credits", label: "Network", icon: BadgeCheck },
+  { href: "/dashboard/network", label: "Network", icon: BadgeCheck },
   { href: "/dashboard/settings", label: "Settings", icon: Settings },
 ] as const;
 

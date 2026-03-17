@@ -27,6 +27,8 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Input } from "@/components/ui/input";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 interface ProjectDetail {
   id: string;
@@ -65,9 +67,67 @@ export default function ProjectDetailPage() {
   const [assets, setAssets] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // New state for hover/selection
   const [hoveredAssetId, setHoveredAssetId] = useState<string | null>(null);
   const [selectedAssetId, setSelectedAssetId] = useState<string | null>(null);
+
+  // New state for collaboration
+  const [isAddingCollab, setIsAddingCollab] = useState(false);
+  const [collabSearchQuery, setCollabSearchQuery] = useState("");
+  const [collabSearchResults, setCollabSearchResults] = useState<any[]>([]);
+  const [selectedCollab, setSelectedCollab] = useState<any | null>(null);
+  const [collabRole, setCollabRole] = useState("");
+
+  async function searchCreators(query: string) {
+    if (!query || query.length < 2) {
+      setCollabSearchResults([]);
+      return;
+    }
+    const supabase = createSupabaseBrowserClient();
+    if (!supabase) return;
+    const { data } = await supabase
+      .from("profiles")
+      .select("id, display_name, public_slug")
+      .ilike("display_name", `%${query}%`)
+      .limit(5);
+    setCollabSearchResults(data || []);
+  }
+
+  async function handleAddCollab() {
+    if (!selectedCollab || !collabRole) return;
+    const supabase = createSupabaseBrowserClient();
+    if (!supabase) return;
+
+    try {
+      const { error } = await supabase.from("collaborations").insert({
+        project_id: projectId,
+        creator_id: selectedCollab.id,
+        role_title: collabRole,
+        status: "pending"
+      });
+
+      if (error) throw error;
+      toast.success("Collaborator invited!");
+      setIsAddingCollab(false);
+      setSelectedCollab(null);
+      setCollabSearchQuery("");
+      setCollabRole("");
+      
+      // Update local state
+      setCollabs(prev => [...prev, {
+        id: crypto.randomUUID(),
+        creator_id: selectedCollab.id,
+        role_title: collabRole,
+        status: "pending",
+        profile: {
+          display_name: selectedCollab.display_name,
+          public_slug: selectedCollab.public_slug
+        }
+      } as CollabRow]);
+
+    } catch (err: any) {
+      toast.error(err.message || "Failed to invite collaborator");
+    }
+  }
 
   useEffect(() => {
     async function load() {
@@ -404,16 +464,69 @@ export default function ProjectDetailPage() {
 
           {/* Collaborators */}
           <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-base">
-                <Users className="h-4 w-4" />
-                Collaborators
-              </CardTitle>
-              <CardDescription>
-                {collabs.length} credit{collabs.length !== 1 ? "s" : ""} linked.
-              </CardDescription>
+            <CardHeader className="flex flex-row space-y-0 items-start justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <Users className="h-4 w-4" />
+                  Collaborators
+                </CardTitle>
+                <CardDescription>
+                  {collabs.length} credit{collabs.length !== 1 ? "s" : ""} linked.
+                </CardDescription>
+              </div>
+              <Button size="sm" variant="outline" onClick={() => setIsAddingCollab(!isAddingCollab)}>
+                {isAddingCollab ? "Cancel" : "Add"}
+              </Button>
             </CardHeader>
             <CardContent>
+              {isAddingCollab && (
+                <div className="mb-4 space-y-3 p-4 bg-muted/20 border-2 rounded-xl">
+                  <Input 
+                    placeholder="Search by name..." 
+                    value={collabSearchQuery}
+                    onChange={(e) => {
+                      setCollabSearchQuery(e.target.value);
+                      void searchCreators(e.target.value);
+                    }}
+                    className="bg-background"
+                  />
+                  {collabSearchResults.length > 0 && !selectedCollab && (
+                    <div className="max-h-40 overflow-y-auto space-y-1 bg-background border rounded-lg p-1 shadow-sm">
+                      {collabSearchResults.map(u => (
+                        <div 
+                          key={u.id} 
+                          className="flex items-center gap-2 p-2 hover:bg-muted/50 rounded-md cursor-pointer transition-colors"
+                          onClick={() => setSelectedCollab(u)}
+                        >
+                          <Avatar className="h-6 w-6"><AvatarFallback className="text-[10px]">{u.display_name?.[0]}</AvatarFallback></Avatar>
+                          <span className="text-sm font-medium">{u.display_name} <span className="text-muted-foreground font-normal">(@{u.public_slug})</span></span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {selectedCollab && (
+                    <div className="space-y-3 animate-in fade-in slide-in-from-top-2">
+                       <div className="flex justify-between items-center text-sm font-medium bg-primary/5 p-3 border-2 border-primary/20 rounded-lg">
+                         <span className="flex items-center gap-2">
+                            <Avatar className="h-6 w-6"><AvatarFallback className="text-[10px] bg-primary text-primary-foreground">{selectedCollab.display_name?.[0]}</AvatarFallback></Avatar>
+                            {selectedCollab.display_name}
+                         </span>
+                         <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive" onClick={() => setSelectedCollab(null)}>X</Button>
+                       </div>
+                       <Input 
+                         placeholder="Role Title (e.g. Director, Editor)" 
+                         value={collabRole}
+                         onChange={(e) => setCollabRole(e.target.value)}
+                         className="bg-background"
+                       />
+                       <Button size="sm" className="w-full font-bold shadow-md" onClick={() => void handleAddCollab()} disabled={!collabRole}>
+                         Send Invite
+                       </Button>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {collabs.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
                   No collaborators tagged yet.
