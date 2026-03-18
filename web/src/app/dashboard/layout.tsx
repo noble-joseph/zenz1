@@ -51,6 +51,7 @@ export default function DashboardLayout({
   const [ready, setReady] = useState(false);
   const [profile, setProfile] = useState<Partial<Profile> | null>(null);
   const [email, setEmail] = useState<string | null>(null);
+  const [isHovering, setIsHovering] = useState(false);
 
   useEffect(() => {
     const supabase = createSupabaseBrowserClient();
@@ -110,16 +111,24 @@ export default function DashboardLayout({
   return (
     <div className="flex min-h-screen bg-background">
       {/* Desktop Sidebar - Hidden on mobile */}
-      <aside className="fixed left-0 top-0 z-40 hidden h-full flex-col border-r bg-background py-6 lg:flex lg:w-64 transition-all duration-300">
+      <aside 
+        className={`fixed left-0 top-0 z-40 hidden h-full flex-col border-r bg-background py-6 transition-all duration-300 lg:flex ${
+          isHovering ? "lg:w-64" : "lg:w-20"
+        }`}
+        onMouseEnter={() => setIsHovering(true)}
+        onMouseLeave={() => setIsHovering(false)}
+      >
         {/* Brand */}
-        <div className="mb-10 flex h-10 items-center px-6">
+        <div className={`mb-10 flex h-10 items-center transition-all duration-300 ${isHovering ? "px-6" : "justify-center px-3"}`}>
           <Link href="/" className="flex items-center gap-3">
             <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-lg shadow-primary/20">
               <Sparkles className="h-5 w-5" />
             </div>
-            <span className="text-xl font-black tracking-tighter">
-              TALENT OS
-            </span>
+            {isHovering && (
+              <span className="text-xl font-black tracking-tighter">
+                TALENT OS
+              </span>
+            )}
           </Link>
         </div>
 
@@ -140,13 +149,18 @@ export default function DashboardLayout({
                     ? "bg-primary/5 font-bold text-primary"
                     : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
                 }`}
+                title={!isHovering ? item.label : undefined}
               >
                 <div className={`flex h-6 w-6 shrink-0 items-center justify-center transition-transform duration-200 group-hover:scale-110 ${isActive ? "text-primary" : ""}`}>
                   <item.icon className={isActive ? "h-6 w-6" : "h-5 w-5"} />
                 </div>
-                <span>{item.label}</span>
-                {isActive && (
-                  <div className="ml-auto h-1.5 w-1.5 rounded-full bg-primary" />
+                {isHovering && (
+                  <>
+                    <span>{item.label}</span>
+                    {isActive && (
+                      <div className="ml-auto h-1.5 w-1.5 rounded-full bg-primary" />
+                    )}
+                  </>
                 )}
               </Link>
             );
@@ -159,23 +173,28 @@ export default function DashboardLayout({
               render={
                 <Button
                   variant="ghost"
-                  className="flex h-auto w-full items-center justify-start gap-3 rounded-xl px-3 py-3 text-left"
+                  className={`flex h-auto items-center justify-start gap-3 rounded-xl px-3 py-3 text-left transition-all duration-300 ${
+                    isHovering ? "w-full" : "w-full justify-center"
+                  }`}
+                  title={!isHovering ? displayName : undefined}
                 />
               }
             >
-              <Avatar className="h-8 w-8 ring-2 ring-transparent transition-all group-hover:ring-primary/20">
+              <Avatar className="h-8 w-8 ring-2 ring-transparent transition-all group-hover:ring-primary/20 shrink-0">
                 <AvatarFallback className="bg-primary/10 text-xs font-bold text-primary">
                   {initials}
                 </AvatarFallback>
               </Avatar>
-              <div className="flex-1 overflow-hidden">
-                <div className="truncate text-sm font-bold tracking-tight">
-                  {displayName}
+              {isHovering && (
+                <div className="flex-1 overflow-hidden">
+                  <div className="truncate text-sm font-bold tracking-tight">
+                    {displayName}
+                  </div>
+                  <div className="truncate text-[10px] uppercase tracking-widest text-muted-foreground/60">
+                    {profile?.role || "Creator"}
+                  </div>
                 </div>
-                <div className="truncate text-[10px] uppercase tracking-widest text-muted-foreground/60">
-                  {profile?.role || "Creator"}
-                </div>
-              </div>
+              )}
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56" side="right">
               <DropdownMenuItem render={<Link href="/dashboard/settings" />}>
@@ -221,7 +240,9 @@ export default function DashboardLayout({
       </nav>
 
       {/* Main content */}
-      <main className="flex-1 overflow-auto pb-20 lg:pb-0 lg:pl-64 transition-all duration-300">
+      <main className={`flex-1 overflow-auto pb-20 lg:pb-0 transition-all duration-300 ${
+        isHovering ? "lg:pl-64" : "lg:pl-20"
+      }`}>
         <div className="container mx-auto p-4 lg:p-12">
           {children}
         </div>
